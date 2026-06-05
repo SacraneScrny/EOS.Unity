@@ -25,9 +25,7 @@ namespace EOS.Unity
 
         [Header("Components")]
         [SerializeReference]
-#if EOS_SUBCLASS_SELECTOR
-        [MackySoft.SubclassSelector.SubclassSelector]
-#endif
+        [SubclassSelector]
         List<EosObject> _components = new();
 
         public string EntityName => _entityName;

@@ -50,12 +50,10 @@ namespace EOS.Unity.Editor
             DrawIncarnationIdField();
 
             EditorGUILayout.Space();
-            EditorGUILayout.LabelField("Tags", EditorStyles.boldLabel);
-            EditorGUILayout.PropertyField(_tags, GUIContent.none, true);
+            EditorGUILayout.PropertyField(_tags, true);
 
             EditorGUILayout.Space();
-            EditorGUILayout.LabelField("Components", EditorStyles.boldLabel);
-            EditorGUILayout.PropertyField(_components, GUIContent.none, true);
+            EditorGUILayout.PropertyField(_components, true);
             DrawAddComponent();
 
             serializedObject.ApplyModifiedProperties();

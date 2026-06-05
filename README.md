@@ -12,8 +12,11 @@ existing seams (`Universe`, `IncarnationBridge`, `EosLog`, `EosProfiler`,
 
 - The EOS core sources present in the same Unity project.
 - Unity with the `UnityEngine.LowLevel` PlayerLoop API (2019.3+).
-- No external packages required. The incarnation index uses `JsonUtility`
-  (no Newtonsoft dependency in this package).
+- **MackySoft.SubclassSelector** — required for the entity preset inspector
+  (`[SerializeReference]` component picker). Install via UPM:
+  `https://github.com/mackysoft/Unity-SerializeReferenceExtensions.git?path=Assets/MackySoft/MackySoft.SerializeReferenceExtensions`
+  (Package Manager → Add package from git URL).
+- The incarnation index uses `JsonUtility` (no Newtonsoft dependency).
 
 ## Install
 
@@ -188,11 +191,10 @@ public sealed class Health : EosObject
 }
 ```
 
-**MackySoft.SubclassSelector (recommended):** install the package and add
-`EOS_SUBCLASS_SELECTOR` to *Project Settings > Player > Scripting Define Symbols*
-to get its searchable dropdown on each component element. Without it the preset
-still works fully — the built-in **Add Component** picker covers type selection,
-and `[SerializeReference]` handles the rest.
+**MackySoft.SubclassSelector** is required (see Requirements). The `_components`
+field carries its `[SubclassSelector]` attribute, so each element gets a
+searchable type dropdown. The inspector's **Add Component** button is a
+complementary shortcut that appends a typed element in one click.
 
 ## Saves
 
