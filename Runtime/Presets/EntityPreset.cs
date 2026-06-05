@@ -26,6 +26,7 @@ namespace EOS.Unity
         [Header("Components")]
         [SerializeReference]
         [SubclassSelector]
+        [SerializeField]
         List<EosObject> _components = new();
 
         public string EntityName => _entityName;
