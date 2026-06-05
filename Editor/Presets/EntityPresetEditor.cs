@@ -53,8 +53,7 @@ namespace EOS.Unity.Editor
             EditorGUILayout.PropertyField(_tags, true);
 
             EditorGUILayout.Space();
-            EditorGUILayout.PropertyField(_components, true);
-            DrawAddComponent();
+            DrawComponents();
 
             serializedObject.ApplyModifiedProperties();
 
@@ -82,6 +81,46 @@ namespace EOS.Unity.Editor
                 if (GUILayout.Button("↻", GUILayout.Width(24f)))
                     ReloadIds();
             }
+        }
+
+        void DrawComponents()
+        {
+            EditorGUILayout.LabelField($"Components ({_components.arraySize})", EditorStyles.boldLabel);
+
+            int removeAt = -1;
+            for (int i = 0; i < _components.arraySize; i++)
+            {
+                var element = _components.GetArrayElementAtIndex(i);
+                using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
+                {
+                    using (new EditorGUILayout.HorizontalScope())
+                    {
+                        EditorGUILayout.LabelField(ElementLabel(element), EditorStyles.miniBoldLabel);
+                        if (GUILayout.Button("Remove", GUILayout.Width(64f)))
+                            removeAt = i;
+                    }
+                    EditorGUILayout.PropertyField(element, GUIContent.none, true);
+                }
+            }
+
+            if (removeAt >= 0)
+            {
+                _components.DeleteArrayElementAtIndex(removeAt);
+                serializedObject.ApplyModifiedProperties();
+            }
+
+            DrawAddComponent();
+        }
+
+        static string ElementLabel(SerializedProperty element)
+        {
+            var full = element.managedReferenceFullTypename;
+            if (string.IsNullOrEmpty(full)) return "(none)";
+
+            int space = full.IndexOf(' ');
+            var typeName = space >= 0 ? full.Substring(space + 1) : full;
+            int dot = typeName.LastIndexOf('.');
+            return dot >= 0 ? typeName.Substring(dot + 1) : typeName;
         }
 
         void DrawAddComponent()
