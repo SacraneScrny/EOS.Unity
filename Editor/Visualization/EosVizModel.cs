@@ -55,43 +55,56 @@ namespace EOS.Unity.Editor
             }
         }
 
+        // Structural reflection is code-only and never changes at runtime, so it is reflected
+        // once per type and cached for the lifetime of the domain (cleared on assembly reload).
+        // Only the live bits (Enabled/Phase) are refreshed per sample, with no reflection.
+        static readonly Dictionary<Type, SystemInfo> _structCache = new();
+        static List<SystemInfo> _reusable;
+
         /// <summary>
         /// All systems. When the universe is live we read enabled/phase from the running
         /// instances; otherwise we reflect every <see cref="EosSystem"/> subclass in the
-        /// domain (best-effort phase via a throwaway instance).
+        /// domain (best-effort phase via a throwaway instance). The expensive attribute
+        /// reflection is cached; repeated calls only re-read live state and re-layer.
         /// </summary>
         public static List<SystemInfo> Systems(IReadOnlyWorld world)
         {
-            var infos = new List<SystemInfo>();
+            var infos = _reusable ??= new List<SystemInfo>();
+            infos.Clear();
 
             if (world != null)
             {
                 foreach (var system in world.Systems.All)
-                    infos.Add(Describe(system.GetType(), system));
+                {
+                    var info = StructFor(system.GetType());
+                    info.Enabled = system.IsEnabled;  // live, no reflection
+                    info.Phase = system.UpdateType;
+                    infos.Add(info);
+                }
             }
             else
             {
                 foreach (var type in EosSystemTypes())
-                    infos.Add(Describe(type, null));
+                    infos.Add(StructFor(type));
             }
 
             ComputeLayers(infos);
             return infos;
         }
 
-        static SystemInfo Describe(Type type, EosSystem instance)
+        /// <summary>Cached structural description of one system type (phase is best-effort until live).</summary>
+        static SystemInfo StructFor(Type type)
+        {
+            if (_structCache.TryGetValue(type, out var cached)) return cached;
+            var info = Describe(type);
+            _structCache[type] = info;
+            return info;
+        }
+
+        static SystemInfo Describe(Type type)
         {
             var info = new SystemInfo { Type = type, Name = type.Name };
-
-            if (instance != null)
-            {
-                info.Enabled = instance.IsEnabled;
-                info.Phase = instance.UpdateType;
-            }
-            else
-            {
-                info.Phase = TryReadPhase(type);
-            }
+            info.Phase = TryReadPhase(type);
 
             var group = type.GetCustomAttribute<GroupAttribute>();
             if (group != null) info.Group = group.Group;

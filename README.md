@@ -183,6 +183,13 @@ changes) and has three tabs:
 Live data refreshes a few times per second while in Play mode. **Copy dump**
 puts `WorldDebug.DumpUniverse()` on the clipboard.
 
+**Cost:** the window is editor-only and stripped from builds, and has no static
+hooks — when it is closed, nothing runs (zero overhead). While open, all
+expensive gathering happens once per ~10 Hz tick (system reflection is cached
+per type; only live state is re-read), and `OnGUI` just renders that snapshot,
+so per-event repaints stay cheap. Heavy scans (e.g. data archetypes) run only
+when their view is the active one.
+
 Limitations without core changes: individual systems can't be toggled
 (`EosSystem.IsEnabled` has no public setter — only whole groups can); the graph
 reconstructs execution order from attributes rather than the runner's internal
