@@ -196,6 +196,64 @@ field carries its `[SubclassSelector]` attribute, so each element gets a
 searchable type dropdown. The inspector's **Add Component** button is a
 complementary shortcut that appends a typed element in one click.
 
+### Typed presets (sealed component sets)
+
+Some archetypes are awkward to assemble by hand in the inspector — you have to
+know the exact set of components and how each one is wired. For those, subclass
+`EntityPreset` once in your own project and bake the set in code. Because the
+subclass *is* an `EntityPreset`, its assets drop into any `EntityPreset` field,
+and they keep every base feature (extra components, tags, incarnation editable
+per-asset) — the code-defined set is just the foundation.
+
+Override `OnBuild` and use the `EntityPresetBuilder` to add and configure
+components and tags. Internals you don't want exposed stay in code; expose only
+the knobs you want by adding `[SerializeField]` fields to the subclass — they
+show up under a *"<TypeName> Settings"* section in the inspector.
+
+```csharp
+using System;
+using EOS.Unity;
+using UnityEngine;
+
+[CreateAssetMenu(menuName = "Game/Presets/Enemy")]
+public sealed class EnemyPreset : EntityPreset
+{
+    [SerializeField] int _health = 100;
+    [SerializeField] float _speed = 3f;
+
+    protected override void OnBuild(EntityPresetBuilder b)
+    {
+        var hp = b.Add<Health>();        // returns the live component (entity is
+        hp.Max = _health;                // still inactive, so set fields directly)
+        hp.Current = _health;
+
+        b.Add(new Movement { Speed = _speed });   // or hand it a configured copy
+        b.Add<AiBrain>();                          // fully internal, no knob
+
+        b.AddTag("Enemy");
+        b.AddTag(Faction.Hostile);
+
+        b.SetIncarnation<EntityIncarnation>("Enemies/Orc");
+    }
+}
+```
+
+`OnBuild` runs first (the foundation), then the asset's inspector tags /
+incarnation / component list are applied on top, so a designer can still augment
+any individual `EnemyPreset` asset without touching code. Anything that adds an
+already-present component returns the existing one, so the base `Storage<T>`
+de-dupe rules apply.
+
+The builder API:
+
+| Call | Effect |
+|------|--------|
+| `b.Add<T>()` | add `T`, returns the live instance to configure |
+| `b.Add<T>(template)` / `b.Add(template)` | add a deep-copy of a configured instance |
+| `b.AddTag(tag)` | add a string or enum tag |
+| `b.SetIncarnation<TView>(id)` | attach `Incarnation<TView>` with `id` |
+| `b.Entity` / `b.World` | the entity being built (inactive) and its world |
+
 ## Saves
 
 This package adds no save logic. The EOS snapshot plugs into your

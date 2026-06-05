@@ -57,6 +57,7 @@ namespace EOS.Unity
             {
                 var entity = new EosEntity(world, _entityName ?? string.Empty, false, _serializable);
 
+                OnBuild(new EntityPresetBuilder(world, entity));
                 ApplyTags(world, entity);
                 ApplyIncarnation(entity);
                 ApplyComponents(world, entity);
@@ -70,6 +71,8 @@ namespace EOS.Unity
                 return EosEntity.Null;
             }
         }
+
+        protected virtual void OnBuild(EntityPresetBuilder builder) { }
 
         void ApplyTags(World world, EosEntity entity)
         {
@@ -113,17 +116,20 @@ namespace EOS.Unity
                 var template = _components[i];
                 if (template == null) continue;
 
-                try
-                {
-                    var storage = world.ObjectsStorages.GetOrCreate(template.GetType());
-                    var component = storage.AddObject(entity);
-                    EosCloneUtility.CopyDeclaredFields(template, component);
-                }
+                try { AddComponentFrom(world, entity, template); }
                 catch (Exception ex)
                 {
                     EosLog.Error($"add component '{template.GetType().Name}' threw: {ex.Message}", nameof(EntityPreset));
                 }
             }
+        }
+
+        internal static EosObject AddComponentFrom(World world, EosEntity entity, EosObject template)
+        {
+            var storage = world.ObjectsStorages.GetOrCreate(template.GetType());
+            var component = storage.AddObject(entity);
+            EosCloneUtility.CopyDeclaredFields(template, component);
+            return component;
         }
     }
 }

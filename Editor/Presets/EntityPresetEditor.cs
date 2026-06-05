@@ -9,10 +9,16 @@ using UnityEngine;
 
 namespace EOS.Unity.Editor
 {
-    [CustomEditor(typeof(EntityPreset))]
+    [CustomEditor(typeof(EntityPreset), true)]
     public sealed class EntityPresetEditor : UnityEditor.Editor
     {
         const string IndexAssetPath = "Assets/Resources/incarnations.json";
+
+        static readonly HashSet<string> BaseProperties = new()
+        {
+            "m_Script", "_entityName", "_active", "_serializable",
+            "_incarnationView", "_incarnationId", "_tags", "_components",
+        };
 
         SerializedProperty _name;
         SerializedProperty _active;
@@ -40,6 +46,8 @@ namespace EOS.Unity.Editor
         {
             serializedObject.Update();
 
+            DrawPresetSettings();
+
             EditorGUILayout.PropertyField(_name);
             EditorGUILayout.PropertyField(_active);
             EditorGUILayout.PropertyField(_serializable);
@@ -60,6 +68,30 @@ namespace EOS.Unity.Editor
 
             EditorGUILayout.Space();
             DrawSpawnButton();
+        }
+
+        void DrawPresetSettings()
+        {
+            var iterator = serializedObject.GetIterator();
+            bool drewHeader = false;
+
+            if (iterator.NextVisible(true))
+            {
+                do
+                {
+                    if (BaseProperties.Contains(iterator.name)) continue;
+
+                    if (!drewHeader)
+                    {
+                        EditorGUILayout.LabelField($"{target.GetType().Name} Settings", EditorStyles.boldLabel);
+                        drewHeader = true;
+                    }
+                    EditorGUILayout.PropertyField(iterator, true);
+                }
+                while (iterator.NextVisible(false));
+            }
+
+            if (drewHeader) EditorGUILayout.Space();
         }
 
         void DrawIncarnationIdField()
