@@ -160,6 +160,41 @@ if (snap?.Worlds?.Count > 0) WorldSerializer.Restore(snap);
 - **Debug draw:** a hidden (`HideAndDontSave`) MonoBehaviour forwards
   `OnDrawGizmos` to `Universe.DebugDraw()`. Editor Scene/Game view only.
 
+## World Inspector (editor visualization)
+
+A read-only editor window visualizes the running world. Open it via
+**Sackrany ▸ EOS ▸ World Inspector**. It polls the core's public API (no core
+changes) and has three tabs:
+
+- **Live** — pick a world, browse entities, expand a selected entity into its
+  components with live field/property values and tags, and see per-type storage
+  counts. Search by id, name, or component.
+- **Systems** — the system pipeline as a pannable/zoomable IMGUI graph. Nodes
+  are systems (colored by update phase, dimmed when disabled, tagged
+  event/reactive), edges are `[UpdateBefore]`/`[UpdateAfter]`, laid out by
+  longest-path layer. The side panel shows the selected system's query
+  signature, group, and order. Works in edit mode too (reflected from code).
+- **Groups & Archetypes** — three sub-views: the `SystemGroup` tree with live
+  enable/disable toggles (via `SystemGroups.SetEnabled`); **data archetypes**
+  (distinct component-sets present on live entities, with counts, sample
+  entities, and the systems that match them); and **query archetypes** (systems
+  grouped by their include/exclude/tag signature).
+
+Live data refreshes a few times per second while in Play mode. **Copy dump**
+puts `WorldDebug.DumpUniverse()` on the clipboard.
+
+**Cost:** the window is editor-only and stripped from builds, and has no static
+hooks — when it is closed, nothing runs (zero overhead). While open, all
+expensive gathering happens once per ~10 Hz tick (system reflection is cached
+per type; only live state is re-read), and `OnGUI` just renders that snapshot,
+so per-event repaints stay cheap. Heavy scans (e.g. data archetypes) run only
+when their view is the active one.
+
+Limitations without core changes: individual systems can't be toggled
+(`EosSystem.IsEnabled` has no public setter — only whole groups can); the graph
+reconstructs execution order from attributes rather than the runner's internal
+lists; and archetype↔system matching ignores interface params and tag filters.
+
 ## Notes
 
 - **Renaming an incarnation** changes its id (id == path). The postprocessor
