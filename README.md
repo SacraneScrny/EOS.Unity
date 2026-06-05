@@ -128,6 +128,72 @@ entity.On();                // activate -> Awake instantiates the prefab
 
 For a logic-less visual, use `Incarnation<GameObject>` instead.
 
+## Entity presets (ScriptableObject)
+
+Instead of hand-writing the create-entity / add-components / configure / set
+incarnation / activate dance for every kind of object, author it once as a
+**preset** asset and spawn it anywhere.
+
+Create one via `Assets > Create > Sackrany > EOS > Entity Preset`. The inspector
+holds everything needed to boot an entity:
+
+- **Name / Active / Serializable** — the `EosEntity` flags.
+- **Incarnation** — pick the view kind (`EntityIncarnation`, `GameObject`, or
+  `None`) and an id. The id field has a dropdown sourced from
+  `incarnations.json`, so you select from real prefabs.
+- **Tags** — a plain string list.
+- **Components** — a `[SerializeReference]` list of `EosObject` subclasses,
+  configured inline. Use **Add Component** for a type picker over every concrete
+  component in the project; field values you set on the asset are the spawn
+  defaults.
+
+Spawn it from code:
+
+```csharp
+using EOS.Unity;
+
+[SerializeField] EntityPreset _orc;
+
+void SpawnOrc()
+{
+    var entity = _orc.Instantiate();          // into the default world
+    // or _orc.Instantiate(myWorld);
+}
+```
+
+…or drop an **Entity Preset Spawner** component (`Sackrany/EOS/Entity Preset
+Spawner`) on a GameObject: assign the preset, and it spawns on `Start`
+(booting EOS first if needed). There's also a **Spawn Into Default World** button
+on the preset inspector while in Play Mode.
+
+How configured data reaches the live component: the preset stores each component
+as a serialized template; at spawn the matching `Storage<T>` is resolved by type
+(`ObjectsStorages.GetOrCreate`), a fresh component is added, and the template's
+fields are **deep-copied** onto it — entities never share reference-type fields
+(`List<>`, nested classes) with the asset or with each other. The entity is
+created inactive, fully configured, then activated, so `Awake`/`Start` (and the
+incarnation's view instantiation) see the final data.
+
+For components to show up and be editable, mark them `[Serializable]`:
+
+```csharp
+using System;
+using EOS.Objects;
+
+[Serializable]
+public sealed class Health : EosObject
+{
+    public int Max = 100;
+    public int Current = 100;
+}
+```
+
+**MackySoft.SubclassSelector (recommended):** install the package and add
+`EOS_SUBCLASS_SELECTOR` to *Project Settings > Player > Scripting Define Symbols*
+to get its searchable dropdown on each component element. Without it the preset
+still works fully — the built-in **Add Component** picker covers type selection,
+and `[SerializeReference]` handles the rest.
+
 ## Saves
 
 This package adds no save logic. The EOS snapshot plugs into your
