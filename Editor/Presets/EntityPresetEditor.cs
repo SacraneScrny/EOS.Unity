@@ -21,6 +21,8 @@ namespace EOS.Unity.Editor
         SerializedProperty _incarnationId;
         SerializedProperty _tags;
         SerializedProperty _components;
+        SerializedProperty _sets;
+        SerializedProperty _setOverrides;
 
         string[] _incarnationIds;
 
@@ -33,6 +35,8 @@ namespace EOS.Unity.Editor
             _incarnationId = serializedObject.FindProperty("_incarnationId");
             _tags = serializedObject.FindProperty("_tags");
             _components = serializedObject.FindProperty("_components");
+            _sets = serializedObject.FindProperty("_sets");
+            _setOverrides = serializedObject.FindProperty("_setOverrides");
             ReloadIds();
         }
 
@@ -53,13 +57,166 @@ namespace EOS.Unity.Editor
             EditorGUILayout.PropertyField(_tags, true);
 
             EditorGUILayout.Space();
+            DrawSets();
+
+            EditorGUILayout.Space();
             EditorGUILayout.PropertyField(_components, true);
-            DrawAddComponent();
+            PresetEditorUtility.DrawAddComponentButton(serializedObject, _components);
 
             serializedObject.ApplyModifiedProperties();
 
             EditorGUILayout.Space();
             DrawSpawnButton();
+        }
+
+        void DrawSets()
+        {
+            EditorGUILayout.LabelField("Component Sets", EditorStyles.boldLabel);
+            EditorGUILayout.PropertyField(_sets, new GUIContent("Sets"), true);
+
+            var effective = EffectiveSetComponents();
+            PruneOrphanOverrides(effective);
+
+            if (effective.Count == 0) return;
+
+            EditorGUILayout.Space(2f);
+            EditorGUILayout.LabelField("Set Components (required)", EditorStyles.miniBoldLabel);
+
+            foreach (var entry in effective)
+                DrawSetComponent(entry);
+        }
+
+        void DrawSetComponent(SetComponentEntry entry)
+        {
+            int overrideIndex = OverrideIndexOf(entry.Type);
+            bool overridden = overrideIndex >= 0;
+
+            using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
+            {
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    var title = $"{ShortName(entry.Type)}  ·  {entry.Set.name}";
+                    EditorGUILayout.LabelField(title, overridden ? EditorStyles.boldLabel : EditorStyles.label);
+                    GUILayout.FlexibleSpace();
+
+                    if (overridden)
+                    {
+                        if (GUILayout.Button("Revert", GUILayout.Width(64f)))
+                        {
+                            _setOverrides.DeleteArrayElementAtIndex(overrideIndex);
+                            serializedObject.ApplyModifiedProperties();
+                            GUIUtility.ExitGUI();
+                        }
+                    }
+                    else if (GUILayout.Button("Override", GUILayout.Width(72f)))
+                    {
+                        Materialize(entry);
+                        GUIUtility.ExitGUI();
+                    }
+                }
+
+                if (overridden)
+                    EditorGUILayout.PropertyField(_setOverrides.GetArrayElementAtIndex(overrideIndex), GUIContent.none, true);
+                else
+                    DrawSetSourceReadonly(entry);
+            }
+        }
+
+        void DrawSetSourceReadonly(SetComponentEntry entry)
+        {
+            var setObject = new SerializedObject(entry.Set);
+            var list = setObject.FindProperty("_components");
+            if (list == null || entry.Index >= list.arraySize) return;
+
+            using (new EditorGUI.DisabledScope(true))
+                EditorGUILayout.PropertyField(list.GetArrayElementAtIndex(entry.Index), GUIContent.none, true);
+        }
+
+        void Materialize(SetComponentEntry entry)
+        {
+            var source = SourceTemplate(entry);
+            if (source == null) return;
+
+            try
+            {
+                var copy = (EosObject)Activator.CreateInstance(entry.Type);
+                EosCloneUtility.CopyDeclaredFields(source, copy);
+
+                serializedObject.Update();
+                int i = _setOverrides.arraySize;
+                _setOverrides.InsertArrayElementAtIndex(i);
+                _setOverrides.GetArrayElementAtIndex(i).managedReferenceValue = copy;
+                serializedObject.ApplyModifiedProperties();
+            }
+            catch (Exception ex)
+            {
+                Debug.LogError($"[EOS] override '{entry.Type.Name}' failed: {ex.Message}");
+            }
+        }
+
+        List<SetComponentEntry> EffectiveSetComponents()
+        {
+            var result = new List<SetComponentEntry>();
+            var seen = new HashSet<Type>();
+            var sets = ((EntityPreset)target).Sets;
+            if (sets == null) return result;
+
+            for (int s = 0; s < sets.Count; s++)
+            {
+                var set = sets[s];
+                if (set == null) continue;
+
+                var components = set.Components;
+                if (components == null) continue;
+
+                for (int i = 0; i < components.Count; i++)
+                {
+                    var component = components[i];
+                    if (component == null) continue;
+
+                    var type = component.GetType();
+                    if (seen.Add(type))
+                        result.Add(new SetComponentEntry { Type = type, Set = set, Index = i });
+                }
+            }
+            return result;
+        }
+
+        EosObject SourceTemplate(SetComponentEntry entry)
+        {
+            var components = entry.Set.Components;
+            return components != null && entry.Index < components.Count ? components[entry.Index] : null;
+        }
+
+        int OverrideIndexOf(Type type)
+        {
+            var overrides = ((EntityPreset)target).SetOverrides;
+            if (overrides == null) return -1;
+            for (int i = 0; i < overrides.Count; i++)
+                if (overrides[i] != null && overrides[i].GetType() == type)
+                    return i;
+            return -1;
+        }
+
+        void PruneOrphanOverrides(List<SetComponentEntry> effective)
+        {
+            var overrides = ((EntityPreset)target).SetOverrides;
+            if (overrides == null || overrides.Count == 0) return;
+
+            var keep = new HashSet<Type>(effective.Select(e => e.Type));
+            bool changed = false;
+
+            for (int i = overrides.Count - 1; i >= 0; i--)
+            {
+                var o = overrides[i];
+                if (o == null || !keep.Contains(o.GetType()))
+                {
+                    _setOverrides.DeleteArrayElementAtIndex(i);
+                    changed = true;
+                }
+            }
+
+            if (changed) serializedObject.ApplyModifiedProperties();
         }
 
         void DrawIncarnationIdField()
@@ -82,46 +239,6 @@ namespace EOS.Unity.Editor
                 if (GUILayout.Button("↻", GUILayout.Width(24f)))
                     ReloadIds();
             }
-        }
-
-        void DrawAddComponent()
-        {
-            if (!GUILayout.Button("Add Component")) return;
-
-            var menu = new GenericMenu();
-            foreach (var type in ConcreteComponentTypes())
-            {
-                var label = type.FullName.Replace('.', '/');
-                menu.AddItem(new GUIContent(label), false, () => AddComponent(type));
-            }
-            menu.ShowAsContext();
-        }
-
-        void AddComponent(Type type)
-        {
-            serializedObject.Update();
-            int i = _components.arraySize;
-            _components.InsertArrayElementAtIndex(i);
-            _components.GetArrayElementAtIndex(i).managedReferenceValue = Activator.CreateInstance(type);
-            serializedObject.ApplyModifiedProperties();
-        }
-
-        static IEnumerable<Type> ConcreteComponentTypes()
-        {
-            return AppDomain.CurrentDomain.GetAssemblies()
-                .SelectMany(SafeTypes)
-                .Where(t => t != null
-                    && typeof(EosObject).IsAssignableFrom(t)
-                    && !t.IsAbstract
-                    && !t.IsGenericTypeDefinition
-                    && t.GetConstructor(Type.EmptyTypes) != null)
-                .OrderBy(t => t.FullName);
-        }
-
-        static IEnumerable<Type> SafeTypes(System.Reflection.Assembly assembly)
-        {
-            try { return assembly.GetTypes(); }
-            catch { return Array.Empty<Type>(); }
         }
 
         void DrawSpawnButton()
@@ -147,6 +264,20 @@ namespace EOS.Unity.Editor
             {
                 _incarnationIds = Array.Empty<string>();
             }
+        }
+
+        static string ShortName(Type type)
+        {
+            var name = type.Name;
+            int tick = name.IndexOf('`');
+            return tick >= 0 ? name.Substring(0, tick) : name;
+        }
+
+        struct SetComponentEntry
+        {
+            public Type Type;
+            public EntityComponentSet Set;
+            public int Index;
         }
     }
 }

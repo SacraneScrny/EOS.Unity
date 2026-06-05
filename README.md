@@ -196,6 +196,38 @@ field carries its `[SubclassSelector]` attribute, so each element gets a
 searchable type dropdown. The inspector's **Add Component** button is a
 complementary shortcut that appends a typed element in one click.
 
+### Component sets (required, shared archetypes)
+
+Some entity types share a fixed set of components that must always be present —
+miss one and a system's query silently skips the entity, which is a nasty bug to
+track down. A **Component Set** is a separate asset that bundles such a set, and
+any number of presets reference it.
+
+Create one via `Assets > Create > Sackrany > EOS > Component Set` — it holds the
+same kind of `[SerializeReference]` component list (plus tags) as a preset. Then,
+on any `EntityPreset`, add the set under **Component Sets ▸ Sets**.
+
+What you get:
+
+- **Always applied.** At spawn, every referenced set's components (and tags) are
+  added to the entity, before the preset's own extras.
+- **Can't be dropped by accident.** Set components show under *"Set Components
+  (required)"* in the preset inspector as read-only — there is no per-component
+  delete. To remove them you remove the *whole* set from the list.
+- **Synced.** Edit the set asset once and every preset that references it picks up
+  the change (structure and values).
+- **Locally overridable.** Press **Override** on a set component to materialize a
+  local, editable copy stored in the preset; its values win for that preset only.
+  **Revert** drops the override and re-syncs to the set. Overrides are keyed by
+  component type (one component per type per entity, same as `Storage<T>`), and
+  orphaned overrides are pruned automatically when a set or component goes away.
+- **Composable.** A preset can reference several sets (e.g. `Damageable` +
+  `Movable`); they're merged, first set wins on a type clash, and the preset's own
+  `Components` list is applied last on top.
+
+Spawning is unchanged — `preset.Instantiate()` resolves sets, overrides, extras,
+tags and incarnation into one entity.
+
 ## Saves
 
 This package adds no save logic. The EOS snapshot plugs into your
