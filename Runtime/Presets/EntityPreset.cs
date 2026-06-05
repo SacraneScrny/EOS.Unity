@@ -29,12 +29,21 @@ namespace EOS.Unity
         [SerializeField]
         List<EosObject> _components = new();
 
+        [Header("Component Sets")]
+        [SerializeField] List<EntityComponentSet> _sets = new();
+
+        [SerializeReference]
+        [SerializeField]
+        List<EosObject> _setOverrides = new();
+
         public string EntityName => _entityName;
         public bool Active => _active;
         public IncarnationViewKind IncarnationView => _incarnationView;
         public string IncarnationId => _incarnationId;
         public IReadOnlyList<string> Tags => _tags;
         public IReadOnlyList<EosObject> Components => _components;
+        public IReadOnlyList<EntityComponentSet> Sets => _sets;
+        public IReadOnlyList<EosObject> SetOverrides => _setOverrides;
 
         public EosEntity Instantiate()
         {
@@ -57,6 +66,7 @@ namespace EOS.Unity
             {
                 var entity = new EosEntity(world, _entityName ?? string.Empty, false, _serializable);
 
+                ApplySets(world, entity);
                 ApplyTags(world, entity);
                 ApplyIncarnation(entity);
                 ApplyComponents(world, entity);
@@ -104,6 +114,62 @@ namespace EOS.Unity
             catch (Exception ex) { EosLog.Error($"add incarnation '{id}' threw: {ex.Message}", nameof(EntityPreset)); }
         }
 
+        void ApplySets(World world, EosEntity entity)
+        {
+            if (_sets == null) return;
+
+            var applied = new HashSet<Type>();
+            for (int s = 0; s < _sets.Count; s++)
+            {
+                var set = _sets[s];
+                if (set == null) continue;
+
+                var components = set.Components;
+                if (components != null)
+                {
+                    for (int i = 0; i < components.Count; i++)
+                    {
+                        var template = components[i];
+                        if (template == null) continue;
+
+                        var type = template.GetType();
+                        if (!applied.Add(type)) continue;
+
+                        var effective = FindOverride(type) ?? template;
+                        try { AddComponentFrom(world, entity, effective); }
+                        catch (Exception ex)
+                        {
+                            EosLog.Error($"add set component '{type.Name}' threw: {ex.Message}", nameof(EntityPreset));
+                        }
+                    }
+                }
+
+                var tags = set.Tags;
+                if (tags != null)
+                {
+                    for (int i = 0; i < tags.Count; i++)
+                    {
+                        var tag = tags[i];
+                        if (string.IsNullOrEmpty(tag)) continue;
+                        try { world.Tags.Add(entity, tag); }
+                        catch (Exception ex)
+                        {
+                            EosLog.Error($"add set tag '{tag}' threw: {ex.Message}", nameof(EntityPreset));
+                        }
+                    }
+                }
+            }
+        }
+
+        EosObject FindOverride(Type type)
+        {
+            if (_setOverrides == null) return null;
+            for (int i = 0; i < _setOverrides.Count; i++)
+                if (_setOverrides[i] != null && _setOverrides[i].GetType() == type)
+                    return _setOverrides[i];
+            return null;
+        }
+
         void ApplyComponents(World world, EosEntity entity)
         {
             if (_components == null) return;
@@ -113,17 +179,19 @@ namespace EOS.Unity
                 var template = _components[i];
                 if (template == null) continue;
 
-                try
-                {
-                    var storage = world.ObjectsStorages.GetOrCreate(template.GetType());
-                    var component = storage.AddObject(entity);
-                    EosCloneUtility.CopyDeclaredFields(template, component);
-                }
+                try { AddComponentFrom(world, entity, template); }
                 catch (Exception ex)
                 {
                     EosLog.Error($"add component '{template.GetType().Name}' threw: {ex.Message}", nameof(EntityPreset));
                 }
             }
+        }
+
+        static void AddComponentFrom(World world, EosEntity entity, EosObject template)
+        {
+            var storage = world.ObjectsStorages.GetOrCreate(template.GetType());
+            var component = storage.AddObject(entity);
+            EosCloneUtility.CopyDeclaredFields(template, component);
         }
     }
 }
