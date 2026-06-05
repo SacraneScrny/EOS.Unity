@@ -1,5 +1,6 @@
 #if UNITY_EDITOR
 using UnityEditor;
+using UnityEditor.IMGUI.Controls;
 using UnityEngine;
 
 namespace EOS.Unity.Editor
@@ -9,6 +10,7 @@ namespace EOS.Unity.Editor
     {
         SerializedProperty _tags;
         SerializedProperty _components;
+        readonly AdvancedDropdownState _pickerState = new();
 
         void OnEnable()
         {
@@ -25,11 +27,11 @@ namespace EOS.Unity.Editor
                 "and cannot be removed from those presets individually.",
                 MessageType.None);
 
-            EditorGUILayout.PropertyField(_tags, true);
+            PresetEditorUtility.DrawTagList(serializedObject, _tags);
 
             EditorGUILayout.Space();
-            EditorGUILayout.PropertyField(_components, true);
-            PresetEditorUtility.DrawAddComponentButton(serializedObject, _components);
+            EditorGUILayout.LabelField("Components", EditorStyles.boldLabel);
+            PresetEditorUtility.DrawComponentList(serializedObject, _components, _pickerState, PresetEditorUtility.AssetKey(target));
 
             serializedObject.ApplyModifiedProperties();
         }

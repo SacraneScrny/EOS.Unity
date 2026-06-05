@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using EOS.Objects;
 using UnityEditor;
+using UnityEditor.IMGUI.Controls;
 using UnityEngine;
 
 namespace EOS.Unity.Editor
@@ -24,7 +25,9 @@ namespace EOS.Unity.Editor
         SerializedProperty _sets;
         SerializedProperty _setOverrides;
 
+        readonly AdvancedDropdownState _pickerState = new();
         string[] _incarnationIds;
+        string _key;
 
         void OnEnable()
         {
@@ -37,6 +40,7 @@ namespace EOS.Unity.Editor
             _components = serializedObject.FindProperty("_components");
             _sets = serializedObject.FindProperty("_sets");
             _setOverrides = serializedObject.FindProperty("_setOverrides");
+            _key = PresetEditorUtility.AssetKey(target);
             ReloadIds();
         }
 
@@ -44,29 +48,48 @@ namespace EOS.Unity.Editor
         {
             serializedObject.Update();
 
-            EditorGUILayout.PropertyField(_name);
-            EditorGUILayout.PropertyField(_active);
-            EditorGUILayout.PropertyField(_serializable);
-
+            DrawInfoBlock();
             EditorGUILayout.Space();
-            EditorGUILayout.LabelField("Incarnation", EditorStyles.boldLabel);
-            EditorGUILayout.PropertyField(_view);
-            DrawIncarnationIdField();
-
-            EditorGUILayout.Space();
-            EditorGUILayout.PropertyField(_tags, true);
-
-            EditorGUILayout.Space();
-            DrawSets();
-
-            EditorGUILayout.Space();
-            EditorGUILayout.PropertyField(_components, true);
-            PresetEditorUtility.DrawAddComponentButton(serializedObject, _components);
+            DrawDataBlock();
 
             serializedObject.ApplyModifiedProperties();
 
             EditorGUILayout.Space();
             DrawSpawnButton();
+        }
+
+        void DrawInfoBlock()
+        {
+            if (!PresetEditorUtility.SectionFoldout(_key + ":info", "Info")) return;
+
+            EditorGUI.indentLevel++;
+            EditorGUILayout.PropertyField(_name);
+            EditorGUILayout.PropertyField(_active);
+            EditorGUILayout.PropertyField(_serializable);
+
+            EditorGUILayout.Space(2f);
+            EditorGUILayout.LabelField("Incarnation", EditorStyles.boldLabel);
+            EditorGUILayout.PropertyField(_view);
+            DrawIncarnationIdField();
+            EditorGUI.indentLevel--;
+        }
+
+        void DrawDataBlock()
+        {
+            if (!PresetEditorUtility.SectionFoldout(_key + ":data", "Data")) return;
+
+            EditorGUI.indentLevel++;
+
+            PresetEditorUtility.DrawTagList(serializedObject, _tags);
+
+            EditorGUILayout.Space();
+            DrawSets();
+
+            EditorGUILayout.Space();
+            EditorGUILayout.LabelField("Components", EditorStyles.boldLabel);
+            PresetEditorUtility.DrawComponentList(serializedObject, _components, _pickerState, _key);
+
+            EditorGUI.indentLevel--;
         }
 
         void DrawSets()
@@ -76,60 +99,58 @@ namespace EOS.Unity.Editor
 
             var effective = EffectiveSetComponents();
             PruneOrphanOverrides(effective);
-
             if (effective.Count == 0) return;
 
             EditorGUILayout.Space(2f);
             EditorGUILayout.LabelField("Set Components (required)", EditorStyles.miniBoldLabel);
 
+            int revertOverrideIndex = -1;
+            SetComponentEntry materializeEntry = default;
+            bool materialize = false;
+
             foreach (var entry in effective)
-                DrawSetComponent(entry);
-        }
-
-        void DrawSetComponent(SetComponentEntry entry)
-        {
-            int overrideIndex = OverrideIndexOf(entry.Type);
-            bool overridden = overrideIndex >= 0;
-
-            using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
             {
-                using (new EditorGUILayout.HorizontalScope())
-                {
-                    var title = $"{ShortName(entry.Type)}  ·  {entry.Set.name}";
-                    EditorGUILayout.LabelField(title, overridden ? EditorStyles.boldLabel : EditorStyles.label);
-                    GUILayout.FlexibleSpace();
-
-                    if (overridden)
-                    {
-                        if (GUILayout.Button("Revert", GUILayout.Width(64f)))
-                        {
-                            _setOverrides.DeleteArrayElementAtIndex(overrideIndex);
-                            serializedObject.ApplyModifiedProperties();
-                            GUIUtility.ExitGUI();
-                        }
-                    }
-                    else if (GUILayout.Button("Override", GUILayout.Width(72f)))
-                    {
-                        Materialize(entry);
-                        GUIUtility.ExitGUI();
-                    }
-                }
+                int overrideIndex = OverrideIndexOf(entry.Type);
+                bool overridden = overrideIndex >= 0;
+                var key = _key + ":set:" + entry.Type.FullName;
 
                 if (overridden)
-                    EditorGUILayout.PropertyField(_setOverrides.GetArrayElementAtIndex(overrideIndex), GUIContent.none, true);
+                {
+                    var name = $"{PresetEditorUtility.ShortName(entry.Type)}  (override)";
+                    var element = _setOverrides.GetArrayElementAtIndex(overrideIndex);
+                    var action = PresetEditorUtility.ComponentBlock(
+                        key, element, name, editable: true, showDelete: false, showRevert: true, showOverride: false);
+                    if (action == PresetEditorUtility.RowAction.Revert) revertOverrideIndex = overrideIndex;
+                }
                 else
-                    DrawSetSourceReadonly(entry);
+                {
+                    var name = $"{PresetEditorUtility.ShortName(entry.Type)}  ·  {entry.Set.name}";
+                    var setObject = new SerializedObject(entry.Set);
+                    var list = setObject.FindProperty("_components");
+                    if (list == null || entry.Index >= list.arraySize) continue;
+
+                    var element = list.GetArrayElementAtIndex(entry.Index);
+                    var action = PresetEditorUtility.ComponentBlock(
+                        key, element, name, editable: false, showDelete: false, showRevert: false, showOverride: true);
+                    if (action == PresetEditorUtility.RowAction.Override) { materialize = true; materializeEntry = entry; }
+                }
             }
-        }
 
-        void DrawSetSourceReadonly(SetComponentEntry entry)
-        {
-            var setObject = new SerializedObject(entry.Set);
-            var list = setObject.FindProperty("_components");
-            if (list == null || entry.Index >= list.arraySize) return;
-
-            using (new EditorGUI.DisabledScope(true))
-                EditorGUILayout.PropertyField(list.GetArrayElementAtIndex(entry.Index), GUIContent.none, true);
+            if (revertOverrideIndex >= 0)
+            {
+                var name = PresetEditorUtility.ManagedShortName(_setOverrides.GetArrayElementAtIndex(revertOverrideIndex));
+                if (EditorUtility.DisplayDialog("Revert override", $"Drop the local override of '{name}' and re-sync to the set?", "Revert", "Cancel"))
+                {
+                    _setOverrides.DeleteArrayElementAtIndex(revertOverrideIndex);
+                    serializedObject.ApplyModifiedProperties();
+                }
+                GUIUtility.ExitGUI();
+            }
+            else if (materialize)
+            {
+                Materialize(materializeEntry);
+                GUIUtility.ExitGUI();
+            }
         }
 
         void Materialize(SetComponentEntry entry)
@@ -264,13 +285,6 @@ namespace EOS.Unity.Editor
             {
                 _incarnationIds = Array.Empty<string>();
             }
-        }
-
-        static string ShortName(Type type)
-        {
-            var name = type.Name;
-            int tick = name.IndexOf('`');
-            return tick >= 0 ? name.Substring(0, tick) : name;
         }
 
         struct SetComponentEntry
