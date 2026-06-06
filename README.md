@@ -191,10 +191,23 @@ public sealed class Health : EosObject
 }
 ```
 
-**MackySoft.SubclassSelector** is required (see Requirements). The `_components`
-field carries its `[SubclassSelector]` attribute, so each element gets a
-searchable type dropdown. The inspector's **Add Component** button is a
-complementary shortcut that appends a typed element in one click.
+The preset inspector is split into two foldout blocks — **Info** (name, flags,
+incarnation) and **Data** (tags, sets, components) — whose expanded state is
+remembered per asset.
+
+Components are edited as individual blocks, not a raw list:
+
+- **Add Component** opens a searchable type-picker window.
+- The block's foldout is titled by the component type and is expanded by default;
+  its open/closed state is remembered per asset.
+- A component's **type is fixed after adding** — there is no type dropdown on an
+  existing element. To change type, delete and re-add.
+- Each block has a **✕** (delete, with confirmation) and **Revert** (reset to
+  default values, with confirmation). The list itself can't be reordered or
+  resized directly. Tags work the same way (add/remove via buttons).
+
+**MackySoft.SubclassSelector** is still required (it backs the
+`[SerializeReference]` component fields).
 
 ### Component sets (required, shared archetypes)
 

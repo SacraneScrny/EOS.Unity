@@ -4,30 +4,209 @@ using System.Collections.Generic;
 using System.Linq;
 using EOS.Objects;
 using UnityEditor;
+using UnityEditor.IMGUI.Controls;
 using UnityEngine;
 
 namespace EOS.Unity.Editor
 {
     static class PresetEditorUtility
     {
-        public static void DrawAddComponentButton(SerializedObject serializedObject, SerializedProperty list, string label = "Add Component")
-        {
-            if (!GUILayout.Button(label)) return;
+        const string FoldoutPrefix = "EOS.Preset.Foldout.";
+        const string DeleteIcon = "✕";
 
-            var menu = new GenericMenu();
-            foreach (var type in ConcreteComponentTypes())
+        public enum RowAction { None, Delete, Revert, Override }
+
+        public static string AssetKey(UnityEngine.Object obj)
+        {
+            var path = AssetDatabase.GetAssetPath(obj);
+            return string.IsNullOrEmpty(path) ? obj.GetInstanceID().ToString() : AssetDatabase.AssetPathToGUID(path);
+        }
+
+        public static bool SectionFoldout(string key, string label)
+        {
+            var pref = FoldoutPrefix + key;
+            bool current = EditorPrefs.GetBool(pref, true);
+            bool now = EditorGUILayout.Foldout(current, label, true, EditorStyles.foldoutHeader);
+            if (now != current) EditorPrefs.SetBool(pref, now);
+            return now;
+        }
+
+        public static RowAction ComponentBlock(
+            string key, SerializedProperty element, string displayName,
+            bool editable, bool showDelete, bool showRevert, bool showOverride)
+        {
+            var action = RowAction.None;
+
+            using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
             {
-                var captured = type;
-                menu.AddItem(new GUIContent(type.FullName.Replace('.', '/')), false, () =>
+                var row = EditorGUILayout.GetControlRect(false, EditorGUIUtility.singleLineHeight);
+
+                const float iconW = 22f, wideW = 70f, gap = 4f;
+                float x = row.xMax;
+                Rect deleteRect = default, revertRect = default, overrideRect = default;
+
+                if (showDelete) { x -= iconW; deleteRect = new Rect(x, row.y, iconW, row.height); x -= gap; }
+                if (showRevert) { x -= wideW; revertRect = new Rect(x, row.y, wideW, row.height); x -= gap; }
+                if (showOverride) { x -= wideW; overrideRect = new Rect(x, row.y, wideW, row.height); x -= gap; }
+
+                var foldRect = new Rect(row.x, row.y, Mathf.Max(40f, x - row.x), row.height);
+
+                var pref = FoldoutPrefix + key;
+                bool current = EditorPrefs.GetBool(pref, true);
+                bool now = EditorGUI.Foldout(foldRect, current, displayName, true);
+                if (now != current) EditorPrefs.SetBool(pref, now);
+
+                if (showOverride && GUI.Button(overrideRect, "Override")) action = RowAction.Override;
+                if (showRevert && GUI.Button(revertRect, "Revert")) action = RowAction.Revert;
+                if (showDelete && GUI.Button(deleteRect, new GUIContent(DeleteIcon, "Delete"))) action = RowAction.Delete;
+
+                if (now)
                 {
-                    serializedObject.Update();
-                    int i = list.arraySize;
-                    list.InsertArrayElementAtIndex(i);
-                    list.GetArrayElementAtIndex(i).managedReferenceValue = Activator.CreateInstance(captured);
-                    serializedObject.ApplyModifiedProperties();
-                });
+                    EditorGUI.indentLevel++;
+                    DrawBody(element, editable);
+                    EditorGUI.indentLevel--;
+                }
             }
-            menu.ShowAsContext();
+
+            return action;
+        }
+
+        static void DrawBody(SerializedProperty element, bool editable)
+        {
+            using (new EditorGUI.DisabledScope(!editable))
+            {
+                var iterator = element.Copy();
+                var end = element.GetEndProperty();
+                bool enter = true;
+                bool any = false;
+
+                while (iterator.NextVisible(enter))
+                {
+                    if (SerializedProperty.EqualContents(iterator, end)) break;
+                    enter = false;
+                    any = true;
+                    EditorGUILayout.PropertyField(iterator, true);
+                }
+
+                if (!any) EditorGUILayout.LabelField("(no editable fields)", EditorStyles.miniLabel);
+            }
+        }
+
+        public static void DrawComponentList(SerializedObject serializedObject, SerializedProperty list, AdvancedDropdownState pickerState, string ownerKey)
+        {
+            int deleteAt = -1, revertAt = -1;
+
+            for (int i = 0; i < list.arraySize; i++)
+            {
+                var element = list.GetArrayElementAtIndex(i);
+                var name = ManagedShortName(element);
+                var key = ownerKey + ":component:" + name;
+
+                var action = ComponentBlock(key, element, name, editable: true, showDelete: true, showRevert: true, showOverride: false);
+                if (action == RowAction.Delete) deleteAt = i;
+                else if (action == RowAction.Revert) revertAt = i;
+            }
+
+            if (deleteAt >= 0)
+            {
+                var name = ManagedShortName(list.GetArrayElementAtIndex(deleteAt));
+                if (EditorUtility.DisplayDialog("Delete component", $"Remove '{name}' from this list?", "Delete", "Cancel"))
+                {
+                    list.DeleteArrayElementAtIndex(deleteAt);
+                    serializedObject.ApplyModifiedProperties();
+                }
+                GUIUtility.ExitGUI();
+            }
+            else if (revertAt >= 0)
+            {
+                var element = list.GetArrayElementAtIndex(revertAt);
+                var name = ManagedShortName(element);
+                if (EditorUtility.DisplayDialog("Revert component", $"Reset '{name}' to default values?", "Revert", "Cancel"))
+                {
+                    var type = element.managedReferenceValue?.GetType();
+                    if (type != null)
+                    {
+                        try
+                        {
+                            element.managedReferenceValue = Activator.CreateInstance(type);
+                            serializedObject.ApplyModifiedProperties();
+                        }
+                        catch (Exception ex) { Debug.LogError($"[EOS] revert '{name}' failed: {ex.Message}"); }
+                    }
+                }
+                GUIUtility.ExitGUI();
+            }
+
+            DrawAddButton(serializedObject, list, pickerState);
+        }
+
+        public static void DrawAddButton(SerializedObject serializedObject, SerializedProperty list, AdvancedDropdownState pickerState, string label = "Add Component")
+        {
+            var rect = GUILayoutUtility.GetRect(new GUIContent(label), GUI.skin.button);
+            if (!GUI.Button(rect, label)) return;
+
+            var dropdown = new ComponentPickerDropdown(pickerState, ConcreteComponentTypes().ToArray(), type =>
+            {
+                serializedObject.Update();
+                int i = list.arraySize;
+                list.InsertArrayElementAtIndex(i);
+                list.GetArrayElementAtIndex(i).managedReferenceValue = Activator.CreateInstance(type);
+                serializedObject.ApplyModifiedProperties();
+            });
+            dropdown.Show(rect);
+        }
+
+        public static void DrawTagList(SerializedObject serializedObject, SerializedProperty list, string header = "Tags")
+        {
+            EditorGUILayout.LabelField(header, EditorStyles.boldLabel);
+
+            int removeAt = -1;
+            for (int i = 0; i < list.arraySize; i++)
+            {
+                var element = list.GetArrayElementAtIndex(i);
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    element.stringValue = EditorGUILayout.TextField(element.stringValue);
+                    if (GUILayout.Button(new GUIContent(DeleteIcon, "Remove"), GUILayout.Width(22f)))
+                        removeAt = i;
+                }
+            }
+
+            if (removeAt >= 0)
+            {
+                list.DeleteArrayElementAtIndex(removeAt);
+                serializedObject.ApplyModifiedProperties();
+                GUIUtility.ExitGUI();
+            }
+
+            if (GUILayout.Button("Add Tag"))
+            {
+                int i = list.arraySize;
+                list.InsertArrayElementAtIndex(i);
+                list.GetArrayElementAtIndex(i).stringValue = string.Empty;
+                serializedObject.ApplyModifiedProperties();
+            }
+        }
+
+        public static string ManagedShortName(SerializedProperty element)
+        {
+            var full = element.managedReferenceFullTypename;
+            if (string.IsNullOrEmpty(full)) return "(none)";
+
+            int space = full.IndexOf(' ');
+            var typeName = space >= 0 ? full.Substring(space + 1) : full;
+            int dot = typeName.LastIndexOf('.');
+            if (dot >= 0) typeName = typeName.Substring(dot + 1);
+            int plus = typeName.LastIndexOf('+');
+            if (plus >= 0) typeName = typeName.Substring(plus + 1);
+            return typeName;
+        }
+
+        public static string ShortName(Type type)
+        {
+            var name = type.Name;
+            int tick = name.IndexOf('`');
+            return tick >= 0 ? name.Substring(0, tick) : name;
         }
 
         public static IEnumerable<Type> ConcreteComponentTypes()
