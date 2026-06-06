@@ -1,6 +1,5 @@
 #if UNITY_EDITOR
 using UnityEditor;
-using UnityEditor.IMGUI.Controls;
 using UnityEngine;
 
 namespace EOS.Unity.Editor
@@ -10,7 +9,7 @@ namespace EOS.Unity.Editor
     {
         SerializedProperty _tags;
         SerializedProperty _components;
-        readonly AdvancedDropdownState _pickerState = new();
+        readonly PresetEditorUtility.PickerController _picker = new();
 
         void OnEnable()
         {
@@ -31,7 +30,7 @@ namespace EOS.Unity.Editor
 
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("Components", EditorStyles.boldLabel);
-            PresetEditorUtility.DrawComponentList(serializedObject, _components, _pickerState, PresetEditorUtility.AssetKey(target));
+            PresetEditorUtility.DrawComponentList(serializedObject, _components, _picker, PresetEditorUtility.AssetKey(target), Repaint);
 
             serializedObject.ApplyModifiedProperties();
         }

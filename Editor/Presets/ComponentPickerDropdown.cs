@@ -10,7 +10,7 @@ namespace EOS.Unity.Editor
     {
         readonly Type[] _types;
         readonly Action<Type> _onPick;
-        readonly Dictionary<int, Type> _byId = new();
+        readonly Dictionary<AdvancedDropdownItem, Type> _byItem = new();
 
         public ComponentPickerDropdown(AdvancedDropdownState state, Type[] types, Action<Type> onPick) : base(state)
         {
@@ -21,7 +21,7 @@ namespace EOS.Unity.Editor
 
         protected override AdvancedDropdownItem BuildRoot()
         {
-            _byId.Clear();
+            _byItem.Clear();
             var root = new AdvancedDropdownItem("Components");
             var folders = new Dictionary<string, AdvancedDropdownItem>();
             int id = 1;
@@ -38,7 +38,7 @@ namespace EOS.Unity.Editor
                         path = path.Length == 0 ? segment : path + "." + segment;
                         if (!folders.TryGetValue(path, out var folder))
                         {
-                            folder = new AdvancedDropdownItem(segment);
+                            folder = new AdvancedDropdownItem(segment) { id = id++ };
                             folders[path] = folder;
                             parent.AddChild(folder);
                         }
@@ -46,9 +46,8 @@ namespace EOS.Unity.Editor
                     }
                 }
 
-                var leaf = new AdvancedDropdownItem(type.Name) { id = id };
-                _byId[id] = type;
-                id++;
+                var leaf = new AdvancedDropdownItem(type.Name) { id = id++ };
+                _byItem[leaf] = type;
                 parent.AddChild(leaf);
             }
 
@@ -57,7 +56,7 @@ namespace EOS.Unity.Editor
 
         protected override void ItemSelected(AdvancedDropdownItem item)
         {
-            if (_byId.TryGetValue(item.id, out var type))
+            if (_byItem.TryGetValue(item, out var type))
                 _onPick?.Invoke(type);
         }
     }
