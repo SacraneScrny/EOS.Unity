@@ -124,38 +124,34 @@ namespace EOS.Unity
                 var set = _sets[s];
                 if (set == null) continue;
 
-                var components = set.Components;
-                if (components != null)
+                var collection = set.Collect();
+
+                var components = collection.Components;
+                for (int i = 0; i < components.Count; i++)
                 {
-                    for (int i = 0; i < components.Count; i++)
+                    var template = components[i];
+                    if (template == null) continue;
+
+                    var type = template.GetType();
+                    if (!applied.Add(type)) continue;
+
+                    var effective = FindOverride(type) ?? template;
+                    try { AddComponentFrom(world, entity, effective); }
+                    catch (Exception ex)
                     {
-                        var template = components[i];
-                        if (template == null) continue;
-
-                        var type = template.GetType();
-                        if (!applied.Add(type)) continue;
-
-                        var effective = FindOverride(type) ?? template;
-                        try { AddComponentFrom(world, entity, effective); }
-                        catch (Exception ex)
-                        {
-                            EosLog.Error($"add set component '{type.Name}' threw: {ex.Message}", nameof(EntityPreset));
-                        }
+                        EosLog.Error($"add set component '{type.Name}' threw: {ex.Message}", nameof(EntityPreset));
                     }
                 }
 
-                var tags = set.Tags;
-                if (tags != null)
+                var tags = collection.Tags;
+                for (int i = 0; i < tags.Count; i++)
                 {
-                    for (int i = 0; i < tags.Count; i++)
+                    var tag = tags[i];
+                    if (tag == null) continue;
+                    try { world.Tags.Add(entity, tag); }
+                    catch (Exception ex)
                     {
-                        var tag = tags[i];
-                        if (string.IsNullOrEmpty(tag)) continue;
-                        try { world.Tags.Add(entity, tag); }
-                        catch (Exception ex)
-                        {
-                            EosLog.Error($"add set tag '{tag}' threw: {ex.Message}", nameof(EntityPreset));
-                        }
+                        EosLog.Error($"add set tag threw: {ex.Message}", nameof(EntityPreset));
                     }
                 }
             }

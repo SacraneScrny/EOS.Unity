@@ -241,6 +241,49 @@ What you get:
 Spawning is unchanged — `preset.Instantiate()` resolves sets, overrides, extras,
 tags and incarnation into one entity.
 
+#### Code modules
+
+Sometimes a set is easier to express in code than to author as data. Rather than
+subclassing the ScriptableObject (single inheritance, one asset per behaviour),
+a Component Set has an optional **code module**: a plain `[Serializable]` class
+that builds into the set. The set asset stays one sealed type — drop it into a
+preset's **Sets** field as usual; the module just adds to what it contributes.
+
+Write a module by deriving from `ComponentSetModule`:
+
+```csharp
+using System;
+using EOS.Unity;
+using UnityEngine;
+
+[Serializable]
+public sealed class EnemyBaseModule : ComponentSetModule
+{
+    [SerializeField] int _health = 100;
+
+    public override void Build(ComponentSetBuilder b)
+    {
+        var hp = b.Add<Health>();      // returns the template to configure
+        hp.Max = hp.Current = _health;
+
+        b.Add(new Movement { Speed = 3f });
+        b.Add<AiBrain>();
+        b.AddTag("Enemy");
+    }
+}
+```
+
+In the Component Set inspector, the **Code Module** slot has a **Set Module**
+button (searchable type picker over every `ComponentSetModule`); once assigned it
+shows the module's `[SerializeField]` fields, with **Change** / **clear**.
+
+Builder API: `Add<T>()` (returns the new template), `Add<T>(instance)` /
+`Add(instance)`, `AddTag(stringOrEnum)`. A set runs its serialized
+components/tags **and** its module, then everything flows through the same merge,
+override and de-dupe path. In a preset's inspector, module-built components appear
+under *"Set Components (required)"* by type with an **Override** button (their
+values live in code, so press Override to edit them locally).
+
 ## Saves
 
 This package adds no save logic. The EOS snapshot plugs into your
