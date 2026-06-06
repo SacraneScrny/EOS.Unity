@@ -16,6 +16,21 @@ namespace EOS.Unity.Editor
 
         public enum RowAction { None, Delete, Revert, Override }
 
+        public sealed class PickerController
+        {
+            public readonly AdvancedDropdownState State = new();
+            Type _pending;
+
+            public void Request(Type type) => _pending = type;
+
+            public bool TryConsume(out Type type)
+            {
+                type = _pending;
+                _pending = null;
+                return type != null;
+            }
+        }
+
         public static string AssetKey(UnityEngine.Object obj)
         {
             var path = AssetDatabase.GetAssetPath(obj);
@@ -92,8 +107,17 @@ namespace EOS.Unity.Editor
             }
         }
 
-        public static void DrawComponentList(SerializedObject serializedObject, SerializedProperty list, AdvancedDropdownState pickerState, string ownerKey)
+        public static void DrawComponentList(SerializedObject serializedObject, SerializedProperty list, PickerController picker, string ownerKey, Action repaint)
         {
+            if (picker.TryConsume(out var pendingType))
+            {
+                serializedObject.Update();
+                int at = list.arraySize;
+                list.InsertArrayElementAtIndex(at);
+                list.GetArrayElementAtIndex(at).managedReferenceValue = Activator.CreateInstance(pendingType);
+                serializedObject.ApplyModifiedProperties();
+            }
+
             int deleteAt = -1, revertAt = -1;
 
             for (int i = 0; i < list.arraySize; i++)
@@ -137,21 +161,18 @@ namespace EOS.Unity.Editor
                 GUIUtility.ExitGUI();
             }
 
-            DrawAddButton(serializedObject, list, pickerState);
+            DrawAddButton(picker, repaint);
         }
 
-        public static void DrawAddButton(SerializedObject serializedObject, SerializedProperty list, AdvancedDropdownState pickerState, string label = "Add Component")
+        public static void DrawAddButton(PickerController picker, Action repaint, string label = "Add Component")
         {
             var rect = GUILayoutUtility.GetRect(new GUIContent(label), GUI.skin.button);
             if (!GUI.Button(rect, label)) return;
 
-            var dropdown = new ComponentPickerDropdown(pickerState, ConcreteComponentTypes().ToArray(), type =>
+            var dropdown = new ComponentPickerDropdown(picker.State, ConcreteComponentTypes().ToArray(), type =>
             {
-                serializedObject.Update();
-                int i = list.arraySize;
-                list.InsertArrayElementAtIndex(i);
-                list.GetArrayElementAtIndex(i).managedReferenceValue = Activator.CreateInstance(type);
-                serializedObject.ApplyModifiedProperties();
+                picker.Request(type);
+                repaint?.Invoke();
             });
             dropdown.Show(rect);
         }
