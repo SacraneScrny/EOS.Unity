@@ -5,7 +5,6 @@ using System.IO;
 using System.Linq;
 using EOS.Objects;
 using UnityEditor;
-using UnityEditor.IMGUI.Controls;
 using UnityEngine;
 
 namespace EOS.Unity.Editor
@@ -25,7 +24,7 @@ namespace EOS.Unity.Editor
         SerializedProperty _sets;
         SerializedProperty _setOverrides;
 
-        readonly AdvancedDropdownState _pickerState = new();
+        readonly PresetEditorUtility.PickerController _picker = new();
         string[] _incarnationIds;
         string _key;
 
@@ -87,7 +86,7 @@ namespace EOS.Unity.Editor
 
             EditorGUILayout.Space();
             EditorGUILayout.LabelField("Components", EditorStyles.boldLabel);
-            PresetEditorUtility.DrawComponentList(serializedObject, _components, _pickerState, _key);
+            PresetEditorUtility.DrawComponentList(serializedObject, _components, _picker, _key, Repaint);
 
             EditorGUI.indentLevel--;
         }
