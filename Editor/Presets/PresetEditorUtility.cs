@@ -47,8 +47,8 @@ namespace EOS.Unity.Editor
         }
 
         public static RowAction ComponentBlock(
-            string key, SerializedProperty element, string displayName,
-            bool editable, bool showDelete, bool showRevert, bool showOverride)
+            string key, string displayName,
+            bool showDelete, bool showRevert, bool showOverride, Action drawBody)
         {
             var action = RowAction.None;
 
@@ -75,10 +75,10 @@ namespace EOS.Unity.Editor
                 if (showRevert && GUI.Button(revertRect, "Revert")) action = RowAction.Revert;
                 if (showDelete && GUI.Button(deleteRect, new GUIContent(DeleteIcon, "Delete"))) action = RowAction.Delete;
 
-                if (now)
+                if (now && drawBody != null)
                 {
                     EditorGUI.indentLevel++;
-                    DrawBody(element, editable);
+                    drawBody();
                     EditorGUI.indentLevel--;
                 }
             }
@@ -86,7 +86,7 @@ namespace EOS.Unity.Editor
             return action;
         }
 
-        static void DrawBody(SerializedProperty element, bool editable)
+        public static void DrawManagedReferenceBody(SerializedProperty element, bool editable)
         {
             using (new EditorGUI.DisabledScope(!editable))
             {
@@ -126,7 +126,8 @@ namespace EOS.Unity.Editor
                 var name = ManagedShortName(element);
                 var key = ownerKey + ":component:" + name;
 
-                var action = ComponentBlock(key, element, name, editable: true, showDelete: true, showRevert: true, showOverride: false);
+                var action = ComponentBlock(key, name, showDelete: true, showRevert: true, showOverride: false,
+                    () => DrawManagedReferenceBody(element, true));
                 if (action == RowAction.Delete) deleteAt = i;
                 else if (action == RowAction.Revert) revertAt = i;
             }
@@ -230,16 +231,84 @@ namespace EOS.Unity.Editor
             return tick >= 0 ? name.Substring(0, tick) : name;
         }
 
-        public static IEnumerable<Type> ConcreteComponentTypes()
+        public static IEnumerable<Type> ConcreteComponentTypes() => ConcreteTypesOf(typeof(EosObject));
+
+        public static IEnumerable<Type> ConcreteTypesOf(Type baseType)
         {
             return AppDomain.CurrentDomain.GetAssemblies()
                 .SelectMany(SafeTypes)
                 .Where(t => t != null
-                    && typeof(EosObject).IsAssignableFrom(t)
+                    && baseType.IsAssignableFrom(t)
                     && !t.IsAbstract
                     && !t.IsGenericTypeDefinition
                     && t.GetConstructor(Type.EmptyTypes) != null)
                 .OrderBy(t => t.FullName);
+        }
+
+        static void ShowTypePicker(Rect rect, PickerController picker, Type baseType, Action repaint)
+        {
+            var dropdown = new ComponentPickerDropdown(picker.State, ConcreteTypesOf(baseType).ToArray(), type =>
+            {
+                picker.Request(type);
+                repaint?.Invoke();
+            });
+            dropdown.Show(rect);
+        }
+
+        public static void DrawSingleManagedReference(
+            SerializedObject serializedObject, SerializedProperty property, PickerController picker,
+            Type baseType, string label, string key, Action repaint)
+        {
+            if (picker.TryConsume(out var pendingType))
+            {
+                serializedObject.Update();
+                property.managedReferenceValue = Activator.CreateInstance(pendingType);
+                serializedObject.ApplyModifiedProperties();
+            }
+
+            EditorGUILayout.LabelField(label, EditorStyles.boldLabel);
+
+            bool assigned = !string.IsNullOrEmpty(property.managedReferenceFullTypename);
+
+            using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
+            {
+                var row = EditorGUILayout.GetControlRect(false, EditorGUIUtility.singleLineHeight);
+
+                if (!assigned)
+                {
+                    if (GUI.Button(row, "Set " + label))
+                        ShowTypePicker(row, picker, baseType, repaint);
+                    return;
+                }
+
+                const float iconW = 22f, wideW = 70f, gap = 4f;
+                float x = row.xMax;
+                var clearRect = new Rect(x - iconW, row.y, iconW, row.height); x -= iconW + gap;
+                var changeRect = new Rect(x - wideW, row.y, wideW, row.height); x -= wideW + gap;
+                var foldRect = new Rect(row.x, row.y, Mathf.Max(40f, x - row.x), row.height);
+
+                var pref = FoldoutPrefix + key;
+                bool current = EditorPrefs.GetBool(pref, true);
+                bool now = EditorGUI.Foldout(foldRect, current, ManagedShortName(property), true);
+                if (now != current) EditorPrefs.SetBool(pref, now);
+
+                if (GUI.Button(changeRect, "Change"))
+                    ShowTypePicker(changeRect, picker, baseType, repaint);
+
+                if (GUI.Button(clearRect, new GUIContent(DeleteIcon, "Clear")))
+                {
+                    property.managedReferenceValue = null;
+                    serializedObject.ApplyModifiedProperties();
+                    GUIUtility.ExitGUI();
+                }
+
+                if (now)
+                {
+                    EditorGUI.indentLevel++;
+                    DrawManagedReferenceBody(property, true);
+                    EditorGUI.indentLevel--;
+                }
+            }
         }
 
         static IEnumerable<Type> SafeTypes(System.Reflection.Assembly assembly)

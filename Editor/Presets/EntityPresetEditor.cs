@@ -118,19 +118,16 @@ namespace EOS.Unity.Editor
                     var name = $"{PresetEditorUtility.ShortName(entry.Type)}  (override)";
                     var element = _setOverrides.GetArrayElementAtIndex(overrideIndex);
                     var action = PresetEditorUtility.ComponentBlock(
-                        key, element, name, editable: true, showDelete: false, showRevert: true, showOverride: false);
+                        key, name, showDelete: false, showRevert: true, showOverride: false,
+                        () => PresetEditorUtility.DrawManagedReferenceBody(element, true));
                     if (action == PresetEditorUtility.RowAction.Revert) revertOverrideIndex = overrideIndex;
                 }
                 else
                 {
                     var name = $"{PresetEditorUtility.ShortName(entry.Type)}  ·  {entry.Set.name}";
-                    var setObject = new SerializedObject(entry.Set);
-                    var list = setObject.FindProperty("_components");
-                    if (list == null || entry.Index >= list.arraySize) continue;
-
-                    var element = list.GetArrayElementAtIndex(entry.Index);
+                    Action body = SetComponentPreview(entry);
                     var action = PresetEditorUtility.ComponentBlock(
-                        key, element, name, editable: false, showDelete: false, showRevert: false, showOverride: true);
+                        key, name, showDelete: false, showRevert: false, showOverride: true, body);
                     if (action == PresetEditorUtility.RowAction.Override) { materialize = true; materializeEntry = entry; }
                 }
             }
@@ -152,15 +149,27 @@ namespace EOS.Unity.Editor
             }
         }
 
+        Action SetComponentPreview(SetComponentEntry entry)
+        {
+            if (entry.SerializedIndex < 0)
+                return () => EditorGUILayout.LabelField("Defined in code — Override to edit values.", EditorStyles.miniLabel);
+
+            var setObject = new SerializedObject(entry.Set);
+            var list = setObject.FindProperty("_components");
+            if (list == null || entry.SerializedIndex >= list.arraySize) return null;
+
+            var element = list.GetArrayElementAtIndex(entry.SerializedIndex);
+            return () => PresetEditorUtility.DrawManagedReferenceBody(element, false);
+        }
+
         void Materialize(SetComponentEntry entry)
         {
-            var source = SourceTemplate(entry);
-            if (source == null) return;
+            if (entry.Template == null) return;
 
             try
             {
                 var copy = (EosObject)Activator.CreateInstance(entry.Type);
-                EosCloneUtility.CopyDeclaredFields(source, copy);
+                EosCloneUtility.CopyDeclaredFields(entry.Template, copy);
 
                 serializedObject.Update();
                 int i = _setOverrides.arraySize;
@@ -186,26 +195,36 @@ namespace EOS.Unity.Editor
                 var set = sets[s];
                 if (set == null) continue;
 
-                var components = set.Components;
-                if (components == null) continue;
+                var collection = set.Collect();
+                var serialized = set.Components;
 
+                var components = collection.Components;
                 for (int i = 0; i < components.Count; i++)
                 {
                     var component = components[i];
                     if (component == null) continue;
 
                     var type = component.GetType();
-                    if (seen.Add(type))
-                        result.Add(new SetComponentEntry { Type = type, Set = set, Index = i });
+                    if (!seen.Add(type)) continue;
+
+                    result.Add(new SetComponentEntry
+                    {
+                        Type = type,
+                        Set = set,
+                        Template = component,
+                        SerializedIndex = ReferenceIndex(serialized, component),
+                    });
                 }
             }
             return result;
         }
 
-        EosObject SourceTemplate(SetComponentEntry entry)
+        static int ReferenceIndex(IReadOnlyList<EosObject> list, EosObject value)
         {
-            var components = entry.Set.Components;
-            return components != null && entry.Index < components.Count ? components[entry.Index] : null;
+            if (list == null) return -1;
+            for (int i = 0; i < list.Count; i++)
+                if (ReferenceEquals(list[i], value)) return i;
+            return -1;
         }
 
         int OverrideIndexOf(Type type)
@@ -290,7 +309,8 @@ namespace EOS.Unity.Editor
         {
             public Type Type;
             public EntityComponentSet Set;
-            public int Index;
+            public EosObject Template;
+            public int SerializedIndex;
         }
     }
 }
