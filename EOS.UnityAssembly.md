@@ -152,14 +152,26 @@ public sealed class AttachedTo : EosObject, IObjectSerializable
 {
     public EosEntity Parent;           // serialized as localId
     public string SocketId;            // serialized as-is
+    public Vector3    LocalPosition;   // offset within the socket anchor (serialized)
+    public Quaternion LocalRotation;   // (serialized); identity == snap to anchor
     // Kind is read from the sibling Module; not duplicated here
 }
 ```
 
+The **local offset** (`LocalPosition`/`LocalRotation`) is per-attachment, not
+per-module-type — the same scope can sit at different rail positions on different
+rifles. It travels with `AttachedTo` like any other data, so it survives save/load
+with the module. Identity rotation + zero position means "snap exactly to the
+anchor"; that's the default when you attach without specifying an offset. This is
+the EOS equivalent of the original's per-part `LocalPosition`/`LocalRotation`,
+minus the absolute-transform drift (the offset is relative to the live anchor, so
+editing the prefab's anchor moves the module with it).
+
 `EntityAssembly` is the authoritative side for enumeration and cascade-destroy;
-`AttachedTo` is the back-reference. The attach service keeps them in sync, and on
-restore `AttachedTo` is re-derived from `EntityAssembly` (serialize one side,
-rebuild the other) to make desync impossible — see §6.
+`AttachedTo` is the back-reference. The attach service keeps them in sync. Because
+`AttachedTo` now also carries the per-attachment local offset (which `EntityAssembly`
+does not), **both sides are serialized** and a reconciler only repairs the back-link
+direction if one is missing — see §6.
 
 Why both directions: the original kept `_modulesByRoot`, `_rootByModule`,
 `_modulesByType` for exactly the two access patterns — "list a root's modules"
@@ -171,8 +183,10 @@ hand-maintained dictionaries.
 ```csharp
 public sealed class AssemblyService          // one per World, via ServiceRegistry
 {
-    bool Attach(EosEntity parent, string socketId, EosEntity module);
+    bool Attach(EosEntity parent, string socketId, EosEntity module);                       // snap to anchor
+    bool Attach(EosEntity parent, string socketId, EosEntity module, Vector3 pos, Quaternion rot);
     bool Detach(EosEntity module);
+    bool SetLocalOffset(EosEntity module, Vector3 pos, Quaternion rot);   // update offset, persists
     bool TryGetModule(EosEntity parent, string socketId, out EosEntity module);
     int  GetModules(EosEntity parent, List<EosEntity> into);   // alloc-free fill
     bool IsSocketFree(EosEntity parent, string socketId);
@@ -182,6 +196,7 @@ public static class AssemblyExtensions
 {
     static AssemblyService Assemblies(this World world);       // lazy, cached in Services
     static bool AttachTo(this EosEntity module, EosEntity parent, string socketId);
+    static bool AttachTo(this EosEntity module, EosEntity parent, string socketId, Vector3 pos, Quaternion rot);
     static bool Detach(this EosEntity module);
     static bool TryGetModule(this EosEntity parent, string socketId, out EosEntity m);
 }
@@ -190,10 +205,11 @@ public static class AssemblyExtensions
 `Attach` validates in order: parent has `EntityAssembly`; parent view exposes a
 `SocketSet` with `socketId`; the socket is free; `module` has a `Module` whose
 `Kind` matches the socket's accepted kind. On success it records the link in
-`EntityAssembly`, adds `AttachedTo` to the module, reparents the module's view
-transform under the socket anchor (local pos/rot/scale zeroed, as the original
-did), and emits `ModuleAttached`. `Detach` reverses every step and emits
-`ModuleDetached`.
+`EntityAssembly`, adds `AttachedTo` to the module (storing the local offset — zero
+for the snap-to-anchor overload), reparents the module's view transform under the
+socket anchor and applies that offset, and emits `ModuleAttached`. `SetLocalOffset`
+nudges an already-attached module along its rail and updates the stored offset so it
+survives a save. `Detach` reverses every step and emits `ModuleDetached`.
 
 ```csharp
 public readonly struct ModuleAttached  { public EosEntity Parent, Module; public string SocketId; }
@@ -233,7 +249,7 @@ sealed class AssemblyViewBindSystem : EosSystem
         if (link.ViewBound) return;                       // idempotent
         if (!TryResolveSocketAnchor(link, out var anchor)) return;  // parent view not ready yet
         if (!TryResolveChildView(child, out var view)) return;      // child view not ready yet
-        Reparent(view, anchor);
+        Reparent(view, anchor, link.LocalPosition, link.LocalRotation);   // apply stored offset
         link.ViewBound = true;
     }
 }
@@ -255,21 +271,49 @@ Nothing bespoke. `EntityAssembly`, `Module`, and `AttachedTo` implement
   via `IDeserializeContext.Resolve`,
 - preserves tags, names, active flags, and stable keys.
 
-Restore flow:
+`WorldSerializer.Restore` runs in **two passes** — it creates *every* entity in
+the snapshot first, then adds components and calls `DeserializeData`. So by the
+time any reference is resolved, every entity already exists. Restore flow:
 
-1. `WorldSerializer.Restore` recreates entities and components; `DeserializeData`
-   repopulates `EntityAssembly` links (child refs resolved) and `Module.Kind`
-   (re-interned from name).
-2. `AttachedTo` is **rebuilt from `EntityAssembly`** by a `[New] EntityAssembly`
-   reconciler so the two sides can't disagree (we only trust the root-side map on
-   disk). *(Alternative: serialize both and skip the reconciler — noted as a
-   smaller-code option in §9.)*
-3. Once views instantiate, `AssemblyViewBindSystem` reparents them (§5).
+1. All entities recreated into the id-remap table.
+2. Components added; `DeserializeData` repopulates `EntityAssembly` links and
+   `AttachedTo` (parent ref + socket + **local offset**), and re-interns
+   `Module.Kind` from its name. Both link directions are serialized; a reconciler
+   only fills in a missing back-link, never overrides the offset.
+3. Once views instantiate, `AssemblyViewBindSystem` reparents each module under
+   its socket anchor and applies its stored offset (§5).
 
-Position/rotation are **not** stored centrally as the original did — each entity
-carries its own transform state through its incarnation/components, and modules
-inherit world placement from being reparented under the root. One source of
-truth, no drift.
+### 6.1 Restore order & nested assemblies — order-independent
+
+Because of the two-pass restore, **the logical graph reconnects regardless of
+record order, at any nesting depth**. A turret is both `AttachedTo` (on the tank)
+and `EntityAssembly` (holding a cannon); both are plain components resolved in the
+same pass, so "modules that are themselves sockets" need no depth sorting.
+
+View reparenting is order-independent too: Unity transform parenting is per-link
+(`cannon → turretSocket` and `turret → tankSocket` compose to the same hierarchy
+in any order), and `AssemblyViewBindSystem` binds **each link independently the
+moment its own two endpoints exist**, retrying others next frame. Depth *N* is
+just *N* self-healing links — no top-down pass.
+
+This also drops a whole failure class from the original, which re-found parts by a
+string `HierarchyPath` (`FindTransformByPath`) and silently fell back to the root
+when a path didn't resolve. We store direct entity references + a socket id, so
+renaming a transform in a prefab can't misplace a module.
+
+### 6.2 Where placement lives — heads-up
+
+In EOS, `WorldSerializer` saves **only `EosObject` components** — a Unity view's
+transform is **not** auto-serialized for anyone. So:
+
+- A **module's** placement needs nothing extra: its local offset rides in
+  `AttachedTo`, and its world placement is derived by reparenting under the root.
+- A **root's** (or any free-standing entity's) world placement persists only if
+  you model it as a serialized component (e.g. a `Position`/`Transform` component
+  the view reads in `OnSync`). This is the general EOS.Unity contract — the view
+  is a projection of ECS — not a quirk of assemblies. The original got away
+  without it only because its bespoke serializer hand-wrote `Position`/`Rotation`;
+  here that belongs in a component, which then round-trips for free.
 
 ## 7. Authoring
 
@@ -283,7 +327,9 @@ truth, no drift.
 var rifle  = riflePreset.Instantiate();
 var scope  = scopePreset.Instantiate();
 rifle.TryGetModule("Optics", out _);            // false, empty
-scope.AttachTo(rifle, "Optics");                // validates kind, reparents view, fires event
+scope.AttachTo(rifle, "Optics");                // snap to anchor, reparent view, fire event
+// nudge it forward along the rail; the offset is saved with the module:
+world.Assemblies().SetLocalOffset(scope, new Vector3(0, 0, 0.03f), Quaternion.identity);
 // ... later
 scope.Detach();                                 // or Destroy(rifle) cascades to modules
 ```
@@ -313,7 +359,8 @@ in `OnDestroy`/`OnPushed`.
 
 **Phase 1 — core graph (the deliverable after this doc is approved):**
 `ModuleKind` + registry; `Socket` / `SocketSet` (+ gizmos); `EntityAssembly`,
-`Module`, `AttachedTo`; `AssemblyService` (attach/detach/query, immediate +
+`Module`, `AttachedTo` (incl. per-attachment local offset); `AssemblyService`
+(attach with/without offset, `SetLocalOffset`, detach/query, immediate +
 deferred); `AssemblyViewBindSystem`; cascade destroy; `ModuleAttached/Detached`
 events; save/load through `WorldSerializer` (no custom serializer); editor
 drawer for the `Module.Kind` / `Socket.Kind` fields and `SocketSet` inspector.
@@ -330,10 +377,10 @@ instead of destroying. Deferred because EOS pools nothing today and reuse has to
 be reconciled carefully with `EosObject` dispose/reset semantics — worth doing
 once the graph is proven, not before.
 
-**Smaller-code alternative (call before Phase 1 starts):** serialize **both**
-`EntityAssembly` and `AttachedTo` and drop the §6 reconciler. Saves a system at
-the cost of two on-disk copies of each link that must agree. Recommendation:
-keep the reconciler (single source of truth on disk), but it's a one-line switch.
+Note: with the per-attachment local offset living on `AttachedTo`, both link
+directions are serialized anyway (the offset only exists child-side), so the
+"serialize one side + reconcile" option is off the table — the reconciler now only
+repairs a missing back-link, it is not an alternative encoding.
 
 ## 10. Open points for review
 
@@ -341,7 +388,10 @@ keep the reconciler (single source of truth on disk), but it's a one-line switch
    matches EOS conventions) vs. a static facade like the original's managers.
 2. **Single vs. multi-occupancy sockets** — proposed: one module per `socketId`
    (matches `Point`); multiple sockets may share a `ModuleKind`.
-3. **Reconciler vs. double-serialize** (§9 alternative).
+3. **Local offset authoring** — the runtime API (`SetLocalOffset`) and save are
+   settled; open question is the *editor* side: nudge a module in Play mode and
+   "bake" the live local transform into the offset, vs. typing numbers. Leaning
+   toward a one-click bake.
 4. **Cross-world** — assemblies are within one world (entity refs and stable keys
    are world-local). Confirm that's acceptable.
 5. **`ModuleKind` authoring** — free strings vs. an enum/registry asset for the
