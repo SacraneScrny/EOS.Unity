@@ -107,6 +107,85 @@ Injection is idempotent (own nodes are removed before re-inserting), and they
 are torn down on `Application.quitting` and on exiting Play Mode in the editor.
 Pause is free: `timeScale = 0` yields `dt = 0` and stops Unity's FixedUpdate.
 
+## Attribute boot (`[EosBoot]`)
+
+For multi-system startup you don't have to wire a boot method by hand. Tag any
+`public static` parameterless method with `[EosBoot]` and the editor collects all
+of them, sorts them, and **generates** an orchestrator at
+`Assets/EOS.Generated/EosBootstrap.gen.cs` that auto-runs on
+`RuntimeInitializeOnLoadMethod(BeforeSceneLoad)`. The generated file is rebuilt
+on every recompile and only when it actually changes, so it stays in sync with
+your code on its own. The first step is always the built-in `EosLoop.Boot()`;
+your steps run after it, each guarded so one throwing step doesn't abort the rest.
+
+```csharp
+using EOS.Unity;
+
+public static class GameSystems
+{
+    [EosBoot(order: -100)]                       // lower order runs earlier
+    public static void RegisterBinders() { /* ... */ }
+
+    [EosBoot]
+    [EosBootAfter(typeof(GameSystems), nameof(RegisterBinders))]
+    public static void LoadConfig() { /* ... */ }
+
+    [EosBoot(isFallback: true)]                  // also runs on the warm path
+    public static void EnterScene() { /* ... */ }
+}
+```
+
+Ordering:
+
+- `[EosBoot(order: N)]` — coarse key, lower runs earlier (ties broken
+  deterministically by type/method name).
+- `[EosBootBefore(typeof(X))]` / `[EosBootAfter(typeof(X))]` — hard constraints
+  relative to **all** boot methods of `X`. Add a method name —
+  `[EosBootAfter(typeof(X), nameof(X.Step))]` — to target a single method when a
+  class has several. Constraints win over `Order` (topological sort); a cycle is
+  logged and the offenders fall back to `Order`.
+
+Warm path / fallback: the generated `Run()` is `public`, so you can call it again
+later. If EOS is already booted it runs **only** the steps marked
+`isFallback: true` and skips `EosLoop.Boot()` — for "the core is up but I still
+need to re-run my per-scene setup". A method marked `isFallback: true` runs on
+both the cold and warm paths.
+
+Notes:
+
+- Boot uses the built-in `EosLoop.Boot()` with a default `EosBootConfig`. If you
+  need a custom config, drive boot yourself (the `GameBootstrap` component / the
+  **Create Default Bootstrap** generator) instead of `[EosBoot]`, or register
+  binders from an early `[EosBoot]` step via `IncarnationBridge.Register(...)`.
+- Methods that aren't `public static` parameterless (on a public, non-generic
+  type) are skipped with a warning so the generated file always compiles.
+- With no `[EosBoot]` methods the generated file is removed and boot stays fully
+  explicit. Force a rebuild via **Sackrany ▸ EOS ▸ Regenerate Bootstrap**; the
+  generated file can be git-ignored.
+
+## Domain reset (`[EosDomainReset]`)
+
+Static state that must be cleared between play sessions (when "Enter Play Mode
+Options" disables domain reload) can be tagged with `[EosDomainReset]` on a
+`static` parameterless void method. These run at `SubsystemRegistration`, right
+after the core reset, discovered by **reflection** (no codegen, no ordering
+guarantees — any access modifier is fine).
+
+```csharp
+static class Scoreboard
+{
+    static int _highScore;
+
+    [EosDomainReset]
+    static void Reset() => _highScore = 0;
+}
+```
+
+> On IL2CPP, reflection-invoked methods can be stripped — add
+> `[UnityEngine.Scripting.Preserve]` (or a `link.xml` entry) to `[EosDomainReset]`
+> methods in stripped builds. `[EosBoot]` steps are called directly by generated
+> code, so they are never stripped.
+
 ## Incarnations (views)
 
 Two binders are registered by default:
