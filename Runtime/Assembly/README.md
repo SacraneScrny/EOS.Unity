@@ -45,10 +45,21 @@ and `AttachedTo` are ordinary serializable components, so a saved assembly is
 restored with all its modules and their offsets, and the view hierarchy is rebuilt
 by `AssemblyViewBindSystem`. See the design doc §5–§6 for the timing details.
 
-## Not in Phase 1
+## Phase 2 (authoring) — done
 
-- Default modules authored on an assembly preset (Phase 2).
-- `ModuleKind` enum/registry dropdown in the inspector (Phase 2; strings work now).
-- Entity/view pooling (Phase 3).
-- Kind validation against a socket happens at view-bind time (when the prefab's
-  `SocketSet` is known), not at the `Attach` call — a mismatch logs and rolls back.
+- **Default modules.** `EntityPreset` has a **Default Modules** list
+  (`DefaultModule { SocketId, Module }`); they spawn + attach on a fresh
+  `Instantiate` only (never on load), so loaded assemblies keep their saved
+  modules. See `DefaultModule.cs` / `AssemblyDefaults`.
+- **Kind picker.** Author kinds in a `ModuleKindCatalog` asset (Assets ▸ Create ▸
+  Sackrany ▸ EOS ▸ Module Kind Catalog); `[ModuleKindField]` on `Module.Kind` /
+  `Socket.Kind` shows a dropdown with free-text fallback.
+- **Preset inspector** reads the prefab's `SocketSet` to offer socket-id dropdowns
+  and a read-only socket list.
+
+## Not yet (Phase 3)
+
+- Entity/view pooling.
+- Note: kind validation against a socket happens at view-bind time (when the
+  prefab's `SocketSet` is known), not at the `Attach` call — a mismatch logs and
+  rolls back.

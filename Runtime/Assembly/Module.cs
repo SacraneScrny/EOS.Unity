@@ -8,7 +8,7 @@ namespace EOS.Unity
     [Serializable]
     public sealed class Module : EosObject, IObjectSerializable
     {
-        [SerializeField] string _kind;
+        [SerializeField, ModuleKindField] string _kind;
 
         public ModuleKind Kind
         {

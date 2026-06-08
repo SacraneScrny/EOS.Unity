@@ -36,6 +36,9 @@ namespace EOS.Unity
         [SerializeField]
         List<EosObject> _setOverrides = new();
 
+        [Header("Default Modules")]
+        [SerializeField] List<DefaultModule> _defaultModules = new();
+
         public string EntityName => _entityName;
         public bool Active => _active;
         public IncarnationViewKind IncarnationView => _incarnationView;
@@ -44,6 +47,7 @@ namespace EOS.Unity
         public IReadOnlyList<EosObject> Components => _components;
         public IReadOnlyList<EntityComponentSet> Sets => _sets;
         public IReadOnlyList<EosObject> SetOverrides => _setOverrides;
+        public IReadOnlyList<DefaultModule> DefaultModules => _defaultModules;
 
         public EosEntity Instantiate()
         {
@@ -72,6 +76,8 @@ namespace EOS.Unity
                 ApplyComponents(world, entity);
 
                 if (_active) entity.On();
+
+                AssemblyDefaults.Apply(world, entity, _defaultModules);
                 return entity;
             }
             catch (Exception ex)

@@ -8,7 +8,7 @@ namespace EOS.Unity
     public sealed class Socket
     {
         public string Id;
-        public string Kind;
+        [ModuleKindField] public string Kind;
         public Transform Anchor;
     }
 

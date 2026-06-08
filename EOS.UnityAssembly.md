@@ -5,9 +5,9 @@ the EOS-native re-imagining of `SackranyPawnAssembly`. Decisions locked: a
 dedicated `ModuleKind` type for socket/module typing, and view transforms are
 **reparented** under socket anchors (a real visual hierarchy, as in the original).
 
-> **Status: Phase 1 implemented** in `Runtime/Assembly/`. This document is the
-> spec; the code follows it. Phase 2 (default modules, kind picker) and Phase 3
-> (pooling) are not built yet — see §9.
+> **Status: Phase 1 + Phase 2 implemented** in `Runtime/Assembly/` (+ editor in
+> `Editor/Assembly/` and the preset inspector). This document is the spec; the
+> code follows it. Phase 3 (pooling) is not built yet — see §9.
 
 ---
 
@@ -324,7 +324,9 @@ transform is **not** auto-serialized for anyone. So:
   `Module { Kind = ModuleKind.Of("Scope") }`, and whose incarnation prefab is the
   visual. Spawn with `preset.Instantiate()` like any entity.
 - **An assembly root** is an `EntityPreset` whose incarnation prefab carries a
-  `SocketSet`. Build it, then attach modules:
+  `SocketSet`. Optionally fill its **Default Modules** list (socket id + module
+  preset) in the inspector; those spawn and attach automatically on a fresh
+  `Instantiate` (not on load). Build it, then attach more modules at runtime:
 
 ```csharp
 var rifle  = riflePreset.Instantiate();
@@ -368,11 +370,27 @@ deferred); `AssemblyViewBindSystem`; cascade destroy; `ModuleAttached/Detached`
 events; save/load through `WorldSerializer` (no custom serializer); editor
 drawer for the `Module.Kind` / `Socket.Kind` fields and `SocketSet` inspector.
 
-**Phase 2 — authoring ergonomics:** default modules on an assembly preset
-(`List<(socketId, EntityPreset)>`, spawned + attached when the root is created
-new — the original's `LoadDefaultModules` gated on `IsNew`); "find unlisted
-modules" reconciliation for hand-placed children; `ModuleKind` enum picker;
-preset-inspector affordances (socket list shown read-only from the prefab).
+**Phase 2 — authoring ergonomics (done).**
+
+- **Default modules on a preset.** `EntityPreset` now has a `_defaultModules`
+  list of `DefaultModule { SocketId, EntityPreset Module }`. They are spawned and
+  attached inside `EntityPreset.Instantiate` — which is only ever called for a
+  *fresh* spawn, never by `WorldSerializer.Restore`. That gives the original's
+  "new only" (`IsNew`) semantics for free: a loaded assembly restores its saved
+  modules and does **not** re-apply defaults. Nesting and a depth guard are in
+  `AssemblyDefaults`.
+- **Kind authoring.** A `ModuleKindCatalog` ScriptableObject lists a project's
+  kinds; `[ModuleKindField]` on `Module.Kind` / `Socket.Kind` renders a dropdown
+  (with free-text fallback) sourced from the catalog — no typos, still open.
+- **Preset inspector.** The default-modules editor reads the incarnation prefab's
+  `SocketSet` and offers the socket ids as a dropdown, and shows the prefab's
+  sockets (id + kind) read-only for reference.
+- **"Find unlisted modules" — not applicable** in the EOS model and intentionally
+  omitted. The original needed it because parts could be dragged into a prefab's
+  Unity hierarchy by hand; here every module is a separate entity spawned through
+  a preset or `Attach`, and there is no view→entity reverse map, so there are no
+  "unlisted" children to reconcile. The authoring need it served (pre-filled
+  loadouts) is covered by default modules above.
 
 **Phase 3 — pooling:** `IncarnationPool` keyed by incarnation id
 (`Pop` / `Push` / `PreWarm`), and detach/cascade returning modules to the pool
