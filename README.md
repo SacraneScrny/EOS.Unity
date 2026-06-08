@@ -151,17 +151,45 @@ later. If EOS is already booted it runs **only** the steps marked
 need to re-run my per-scene setup". A method marked `isFallback: true` runs on
 both the cold and warm paths.
 
+### Configuring boot (`[EosBootConfigProvider]`)
+
+To customise the config the built-in boot uses, tag a
+`public static EosBootConfig Name(EosBootConfig config)` method with
+`[EosBootConfigProvider]`. Any number of systems can contribute: the generated
+bootstrap threads **one** config instance through every provider (sorted by
+`Order`, plus `[EosBootBefore]`/`[EosBootAfter]` resolved among providers) and
+feeds the result into `EosLoop.Boot(config)` — before any `[EosBoot]` step.
+
+```csharp
+using EOS.Unity;
+
+public static class Rendering
+{
+    [EosBootConfigProvider(order: -10)]
+    public static EosBootConfig Configure(EosBootConfig c)
+    {
+        c.EnableProfiler = true;
+        c.AddBinder(new MyShipBinder());   // register custom view binders here
+        return c;                          // returning null keeps the incoming config
+    }
+}
+```
+
+Providers run only on the cold path. Mutate and return the same instance, or
+return a new one — both work.
+
 Notes:
 
-- Boot uses the built-in `EosLoop.Boot()` with a default `EosBootConfig`. If you
-  need a custom config, drive boot yourself (the `GameBootstrap` component / the
-  **Create Default Bootstrap** generator) instead of `[EosBoot]`, or register
-  binders from an early `[EosBoot]` step via `IncarnationBridge.Register(...)`.
-- Methods that aren't `public static` parameterless (on a public, non-generic
-  type) are skipped with a warning so the generated file always compiles.
-- With no `[EosBoot]` methods the generated file is removed and boot stays fully
-  explicit. Force a rebuild via **Sackrany ▸ EOS ▸ Regenerate Bootstrap**; the
-  generated file can be git-ignored.
+- With no `[EosBootConfigProvider]`, boot uses the built-in `EosLoop.Boot()` and a
+  default `EosBootConfig`. (The `GameBootstrap` component / **Create Default
+  Bootstrap** generator remain available for inspector-driven, non-attribute boot.)
+- `[EosBoot]` methods must be `public static` parameterless, and
+  `[EosBootConfigProvider]` methods `public static EosBootConfig(EosBootConfig)`,
+  both on a public non-generic type — other shapes are skipped with a warning so
+  the generated file always compiles.
+- With no `[EosBoot]`/`[EosBootConfigProvider]` methods the generated file is
+  removed and boot stays fully explicit. Force a rebuild via
+  **Sackrany ▸ EOS ▸ Regenerate Bootstrap**; the generated file can be git-ignored.
 
 ## Domain reset (`[EosDomainReset]`)
 

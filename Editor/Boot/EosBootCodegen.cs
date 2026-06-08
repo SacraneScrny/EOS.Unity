@@ -30,20 +30,22 @@ namespace EOS.Unity.Editor
         [MenuItem("Sackrany/EOS/Regenerate Bootstrap")]
         static void Regenerate()
         {
-            var nodes = Collect();
+            var steps = CollectBootSteps();
+            var providers = CollectConfigProviders();
 
-            if (nodes.Count == 0)
+            if (steps.Count == 0 && providers.Count == 0)
             {
                 if (File.Exists(OutputPath))
                 {
                     AssetDatabase.DeleteAsset(OutputPath);
-                    Debug.Log($"{Tag} no [EosBoot] methods — removed generated bootstrap");
+                    Debug.Log($"{Tag} no [EosBoot]/[EosBootConfigProvider] methods — removed generated bootstrap");
                 }
                 return;
             }
 
-            var sorted = Sort(nodes);
-            var source = Emit(sorted);
+            var sortedProviders = Sort(providers);
+            var sortedSteps = Sort(steps);
+            var source = Emit(sortedProviders, sortedSteps);
 
             // Only touch the file when something changed — this is what stops the
             // write -> import -> reload -> regenerate cycle from spinning forever.
@@ -53,7 +55,7 @@ namespace EOS.Unity.Editor
             Directory.CreateDirectory(OutputDir);
             File.WriteAllText(OutputPath, source);
             AssetDatabase.ImportAsset(OutputPath);
-            Debug.Log($"{Tag} regenerated bootstrap with {sorted.Count} step(s)");
+            Debug.Log($"{Tag} regenerated bootstrap: {sortedProviders.Count} config provider(s), {sortedSteps.Count} step(s)");
         }
 
         // ---- collection -------------------------------------------------------
@@ -69,38 +71,58 @@ namespace EOS.Unity.Editor
 
             public (Type, string) Key => (Type, MethodName);
             public string Display => $"{Type.FullName}.{MethodName}";
-            public string Call => "global::" + Type.FullName.Replace('+', '.') + "." + MethodName + "()";
+            public string Member => "global::" + Type.FullName.Replace('+', '.') + "." + MethodName;
         }
 
-        static List<Node> Collect()
+        static List<Node> CollectBootSteps()
         {
             var nodes = new List<Node>();
 
             foreach (var method in TypeCache.GetMethodsWithAttribute<EosBootAttribute>())
             {
-                if (!Valid(method)) continue;
+                if (!ValidBootStep(method)) continue;
 
                 var boot = method.GetCustomAttribute<EosBootAttribute>();
-                var node = new Node
-                {
-                    Type = method.DeclaringType,
-                    MethodName = method.Name,
-                    Order = boot.Order,
-                    IsFallback = boot.IsFallback,
-                };
-
-                foreach (var a in method.GetCustomAttributes<EosBootAfterAttribute>())
-                    node.After.Add((a.Type, a.Method));
-                foreach (var b in method.GetCustomAttributes<EosBootBeforeAttribute>())
-                    node.Before.Add((b.Type, b.Method));
-
-                nodes.Add(node);
+                nodes.Add(NewNode(method, boot.Order, boot.IsFallback));
             }
 
             return nodes;
         }
 
-        static bool Valid(MethodInfo method)
+        static List<Node> CollectConfigProviders()
+        {
+            var nodes = new List<Node>();
+
+            foreach (var method in TypeCache.GetMethodsWithAttribute<EosBootConfigProviderAttribute>())
+            {
+                if (!ValidConfigProvider(method)) continue;
+
+                var provider = method.GetCustomAttribute<EosBootConfigProviderAttribute>();
+                nodes.Add(NewNode(method, provider.Order, false));
+            }
+
+            return nodes;
+        }
+
+        static Node NewNode(MethodInfo method, int order, bool isFallback)
+        {
+            var node = new Node
+            {
+                Type = method.DeclaringType,
+                MethodName = method.Name,
+                Order = order,
+                IsFallback = isFallback,
+            };
+
+            foreach (var a in method.GetCustomAttributes<EosBootAfterAttribute>())
+                node.After.Add((a.Type, a.Method));
+            foreach (var b in method.GetCustomAttributes<EosBootBeforeAttribute>())
+                node.Before.Add((b.Type, b.Method));
+
+            return node;
+        }
+
+        static bool ValidBootStep(MethodInfo method)
         {
             var type = method.DeclaringType;
             if (type == null) return false;
@@ -112,6 +134,26 @@ namespace EOS.Unity.Editor
                 Debug.LogWarning(
                     $"{Tag} [EosBoot] '{type.FullName}.{method.Name}' must be a public static parameterless " +
                     "method on a public non-generic type; skipped.");
+                return false;
+            }
+
+            return true;
+        }
+
+        static bool ValidConfigProvider(MethodInfo method)
+        {
+            var type = method.DeclaringType;
+            if (type == null) return false;
+
+            var parameters = method.GetParameters();
+            if (!method.IsStatic || method.IsGenericMethodDefinition || type.IsGenericTypeDefinition
+                || type.FullName == null || !method.IsPublic || !IsAccessibleType(type)
+                || parameters.Length != 1 || parameters[0].ParameterType != typeof(EosBootConfig)
+                || method.ReturnType != typeof(EosBootConfig))
+            {
+                Debug.LogWarning(
+                    $"{Tag} [EosBootConfigProvider] '{type.FullName}.{method.Name}' must be a public static method " +
+                    "'EosBootConfig (EosBootConfig)' on a public non-generic type; skipped.");
                 return false;
             }
 
@@ -208,12 +250,15 @@ namespace EOS.Unity.Editor
 
         // ---- emit -------------------------------------------------------------
 
-        static string Emit(List<Node> sorted)
+        const string ConfigType = "global::EOS.Unity.EosBootConfig";
+
+        static string Emit(List<Node> providers, List<Node> steps)
         {
             var sb = new StringBuilder();
             sb.AppendLine("// <auto-generated>");
             sb.AppendLine("//  Generated by EOS bootstrap codegen — do not edit by hand.");
-            sb.AppendLine("//  Rebuilt automatically on each recompile from [EosBoot] methods.");
+            sb.AppendLine("//  Rebuilt automatically on each recompile from [EosBoot] /");
+            sb.AppendLine("//  [EosBootConfigProvider] methods.");
             sb.AppendLine("// </auto-generated>");
             sb.AppendLine("namespace EOS.Unity.Generated");
             sb.AppendLine("{");
@@ -224,14 +269,26 @@ namespace EOS.Unity.Editor
             sb.AppendLine("        {");
             sb.AppendLine("            if (global::EOS.Unity.EosLoop.IsBooted)");
             sb.AppendLine("            {");
-            foreach (var n in sorted.Where(n => n.IsFallback))
-                sb.AppendLine($"                Invoke(() => {n.Call}, \"{n.Display}\");");
+            foreach (var n in steps.Where(n => n.IsFallback))
+                sb.AppendLine($"                Invoke(() => {n.Member}(), \"{n.Display}\");");
             sb.AppendLine("                return;");
             sb.AppendLine("            }");
             sb.AppendLine();
-            sb.AppendLine("            Invoke(() => global::EOS.Unity.EosLoop.Boot(), \"EosLoop.Boot\");");
-            foreach (var n in sorted)
-                sb.AppendLine($"            Invoke(() => {n.Call}, \"{n.Display}\");");
+
+            if (providers.Count > 0)
+            {
+                sb.AppendLine($"            var config = new {ConfigType}();");
+                foreach (var n in providers)
+                    sb.AppendLine($"            config = Provide(c => {n.Member}(c), config, \"{n.Display}\");");
+                sb.AppendLine("            Invoke(() => global::EOS.Unity.EosLoop.Boot(config), \"EosLoop.Boot\");");
+            }
+            else
+            {
+                sb.AppendLine("            Invoke(() => global::EOS.Unity.EosLoop.Boot(), \"EosLoop.Boot\");");
+            }
+
+            foreach (var n in steps)
+                sb.AppendLine($"            Invoke(() => {n.Member}(), \"{n.Display}\");");
             sb.AppendLine("        }");
             sb.AppendLine();
             sb.AppendLine("        static void Invoke(System.Action step, string name)");
@@ -239,6 +296,17 @@ namespace EOS.Unity.Editor
             sb.AppendLine("            try { step(); }");
             sb.AppendLine("            catch (System.Exception e) { UnityEngine.Debug.LogError(\"[EOS] boot step '\" + name + \"' threw: \" + e); }");
             sb.AppendLine("        }");
+
+            if (providers.Count > 0)
+            {
+                sb.AppendLine();
+                sb.AppendLine($"        static {ConfigType} Provide(System.Func<{ConfigType}, {ConfigType}> step, {ConfigType} config, string name)");
+                sb.AppendLine("        {");
+                sb.AppendLine("            try { return step(config) ?? config; }");
+                sb.AppendLine("            catch (System.Exception e) { UnityEngine.Debug.LogError(\"[EOS] config provider '\" + name + \"' threw: \" + e); return config; }");
+                sb.AppendLine("        }");
+            }
+
             sb.AppendLine("    }");
             sb.AppendLine("}");
             return sb.ToString();
