@@ -39,8 +39,15 @@ Incarnation prefabs live under a dedicated Resources folder — this is the
 
 ```
 Assets/Resources/Incarnations/...      <- your incarnation prefabs
+Assets/Resources/EntityPresets/...     <- your EntityPreset assets (convenience)
 Assets/Resources/incarnations.json     <- generated index (do not edit by hand)
 ```
+
+These folders are created automatically when the editor loads (or scripts
+recompile) if they don't already exist — no manual setup needed. You can also
+recreate them on demand via **Sackrany ▸ EOS ▸ Create EOS Folders**. Only the
+folders are created; the prefabs and presets inside are yours to author in the
+editor.
 
 The index is rebuilt automatically by an `AssetPostprocessor` whenever anything
 under `Resources/Incarnations` changes, and via
