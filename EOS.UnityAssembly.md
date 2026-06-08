@@ -382,17 +382,21 @@ directions are serialized anyway (the offset only exists child-side), so the
 "serialize one side + reconcile" option is off the table — the reconciler now only
 repairs a missing back-link, it is not an alternative encoding.
 
-## 10. Open points for review
+## 10. Decisions (locked)
 
-1. **`AssemblyService` location** — per-world via `ServiceRegistry` (recommended,
-   matches EOS conventions) vs. a static facade like the original's managers.
-2. **Single vs. multi-occupancy sockets** — proposed: one module per `socketId`
-   (matches `Point`); multiple sockets may share a `ModuleKind`.
-3. **Local offset authoring** — the runtime API (`SetLocalOffset`) and save are
-   settled; open question is the *editor* side: nudge a module in Play mode and
-   "bake" the live local transform into the offset, vs. typing numbers. Leaning
-   toward a one-click bake.
-4. **Cross-world** — assemblies are within one world (entity refs and stable keys
-   are world-local). Confirm that's acceptable.
-5. **`ModuleKind` authoring** — free strings vs. an enum/registry asset for the
-   inspector dropdown. Strings ship in Phase 1; a picker can come in Phase 2.
+1. **Module/socket typing** — a dedicated `ModuleKind` value type.
+2. **View hierarchy** — child view transforms are reparented under socket anchors.
+3. **Per-attachment local offset** — stored on `AttachedTo`, serialized; runtime
+   `SetLocalOffset`; editor side bakes the live local transform with one click.
+4. **`AssemblyService` location** — one per `World`, registered in
+   `World.Services` via `ServiceRegistry`, reached through `world.Assemblies()`
+   (no static/global state; clean across worlds and domain reload).
+5. **Socket occupancy** — one module per `socketId`; multiple sockets may share a
+   `ModuleKind`.
+6. **`ModuleKind` authoring** — free strings interned + serialized by name, plus
+   `ModuleKind.Of<TEnum>` for enum-typed kinds. (A registry-asset dropdown is a
+   possible later convenience, not Phase 1.)
+7. **World scope** — assemblies are world-local: root and all modules live in the
+   same `World` (entity refs and stable keys are world-local).
+
+All design questions are resolved; Phase 1 (§9) is ready to implement on approval.
