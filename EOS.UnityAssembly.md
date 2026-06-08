@@ -1,10 +1,13 @@
 # EOS.UnityAssembly — design
 
 Runtime composition of entities from typed, swappable modules, with save/load —
-the EOS-native re-imagining of `SackranyPawnAssembly`. **Design document, not yet
-implemented.** Decisions locked: a dedicated `ModuleKind` type for socket/module
-typing, and view transforms are **reparented** under socket anchors (a real
-visual hierarchy, as in the original).
+the EOS-native re-imagining of `SackranyPawnAssembly`. Decisions locked: a
+dedicated `ModuleKind` type for socket/module typing, and view transforms are
+**reparented** under socket anchors (a real visual hierarchy, as in the original).
+
+> **Status: Phase 1 implemented** in `Runtime/Assembly/`. This document is the
+> spec; the code follows it. Phase 2 (default modules, kind picker) and Phase 3
+> (pooling) are not built yet — see §9.
 
 ---
 
