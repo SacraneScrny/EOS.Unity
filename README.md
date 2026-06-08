@@ -62,8 +62,16 @@ what you pass to `Setup(...)` and what gets serialized into saves.
 
 ## Boot
 
-Static setup (Unity log handler + default binders + domain reset) runs
-automatically on `SubsystemRegistration`. You start the world explicitly:
+The fastest way to a correct bootstrap is the generator:
+**Sackrany ▸ EOS ▸ Create Default Bootstrap**. Pick a folder (and optionally a
+class name / namespace) and it writes a `GameBootstrap` MonoBehaviour with the
+right execution order, an `IsBooted` guard, and a serialized `Config` field —
+drop it on one GameObject in your first scene and tune the options in the
+inspector. It won't overwrite an existing file.
+
+Under the hood, static setup (Unity log handler + default binders + domain
+reset) runs automatically on `SubsystemRegistration`; you start the world
+explicitly. If you'd rather wire it by hand:
 
 ```csharp
 using EOS.Unity;
