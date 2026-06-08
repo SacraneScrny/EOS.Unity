@@ -38,9 +38,18 @@ Incarnation prefabs live under a dedicated Resources folder — this is the
 "obvious separation" of incarnation content from the rest of the project:
 
 ```
-Assets/Resources/Incarnations/...      <- your incarnation prefabs
-Assets/Resources/incarnations.json     <- generated index (do not edit by hand)
+Assets/Resources/Incarnations/...        <- your incarnation prefabs
+Assets/Resources/EntityPresets/...       <- your EntityPreset assets (convenience)
+Assets/Resources/ModuleKindCatalog.asset <- empty catalog, fill the kinds yourself
+Assets/Resources/incarnations.json       <- generated index (do not edit by hand)
 ```
+
+This layout is created automatically when the editor loads (or scripts
+recompile) if it doesn't already exist — no manual setup needed. You can also
+recreate it on demand via **Sackrany ▸ EOS ▸ Create EOS Resources**. Only the
+folders and an empty `ModuleKindCatalog` are created (and only if no catalog
+exists anywhere yet); the prefabs, presets, and the catalog's kind list are
+yours to author in the editor.
 
 The index is rebuilt automatically by an `AssetPostprocessor` whenever anything
 under `Resources/Incarnations` changes, and via
@@ -53,8 +62,16 @@ what you pass to `Setup(...)` and what gets serialized into saves.
 
 ## Boot
 
-Static setup (Unity log handler + default binders + domain reset) runs
-automatically on `SubsystemRegistration`. You start the world explicitly:
+The fastest way to a correct bootstrap is the generator:
+**Sackrany ▸ EOS ▸ Create Default Bootstrap**. Pick a folder (and optionally a
+class name / namespace) and it writes a `GameBootstrap` MonoBehaviour with the
+right execution order, an `IsBooted` guard, and a serialized `Config` field —
+drop it on one GameObject in your first scene and tune the options in the
+inspector. It won't overwrite an existing file.
+
+Under the hood, static setup (Unity log handler + default binders + domain
+reset) runs automatically on `SubsystemRegistration`; you start the world
+explicitly. If you'd rather wire it by hand:
 
 ```csharp
 using EOS.Unity;
