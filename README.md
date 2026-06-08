@@ -109,14 +109,16 @@ Pause is free: `timeScale = 0` yields `dt = 0` and stops Unity's FixedUpdate.
 
 ## Attribute boot (`[EosBoot]`)
 
-For multi-system startup you don't have to wire a boot method by hand. Tag any
-`public static` parameterless method with `[EosBoot]` and the editor collects all
-of them, sorts them, and **generates** an orchestrator at
-`Assets/EOS.Generated/EosBootstrap.gen.cs` that auto-runs on
-`RuntimeInitializeOnLoadMethod(BeforeSceneLoad)`. The generated file is rebuilt
-on every recompile and only when it actually changes, so it stays in sync with
-your code on its own. The first step is always the built-in `EosLoop.Boot()`;
-your steps run after it, each guarded so one throwing step doesn't abort the rest.
+For multi-system startup you don't have to wire a boot method by hand. Create the
+bootstrap once via **Sackrany ▸ EOS ▸ Create Auto Bootstrap** — that generates an
+orchestrator at `Assets/EOS.Generated/EosBootstrap.gen.cs` which auto-runs on
+`RuntimeInitializeOnLoadMethod(BeforeSceneLoad)`. Its existence is the opt-in: the
+file is never created automatically, but while it exists the editor keeps it in
+sync on every recompile (and only when content actually changes). Even with zero
+`[EosBoot]` steps it still boots EOS — the first step is always the built-in
+`EosLoop.Boot()`. Tag any `public static` parameterless method with `[EosBoot]`
+and it's collected, sorted, and called after boot, each guarded so one throwing
+step doesn't abort the rest.
 
 ```csharp
 using EOS.Unity;
@@ -187,9 +189,11 @@ Notes:
   `[EosBootConfigProvider]` methods `public static EosBootConfig(EosBootConfig)`,
   both on a public non-generic type — other shapes are skipped with a warning so
   the generated file always compiles.
-- With no `[EosBoot]`/`[EosBootConfigProvider]` methods the generated file is
-  removed and boot stays fully explicit. Force a rebuild via
-  **Sackrany ▸ EOS ▸ Regenerate Bootstrap**; the generated file can be git-ignored.
+- The generated file is created only by **Sackrany ▸ EOS ▸ Create Auto Bootstrap** and
+  is never auto-created. To turn attribute boot off, delete the file — without it
+  nothing is generated and boot stays fully explicit. The file can be git-ignored;
+  re-create it with the same menu item. Re-running the command on an existing file
+  just refreshes it.
 
 ## Domain reset (`[EosDomainReset]`)
 
