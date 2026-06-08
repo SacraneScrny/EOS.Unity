@@ -1,5 +1,6 @@
 #if UNITY_EDITOR
 using UnityEditor;
+using UnityEngine;
 
 namespace EOS.Unity.Editor
 {
@@ -12,21 +13,35 @@ namespace EOS.Unity.Editor
         const string Resources = "Assets/Resources";
         const string Incarnations = "Assets/Resources/Incarnations";
         const string EntityPresets = "Assets/Resources/EntityPresets";
+        const string ModuleCatalog = "Assets/Resources/ModuleKindCatalog.asset";
 
         static EosFolderBootstrap()
         {
             // Defer: AssetDatabase is not guaranteed ready inside the static ctor.
-            EditorApplication.delayCall += EnsureFolders;
+            EditorApplication.delayCall += EnsureLayout;
         }
 
-        [MenuItem("Sackrany/EOS/Create EOS Folders")]
-        static void EnsureFolders()
+        [MenuItem("Sackrany/EOS/Create EOS Resources")]
+        static void EnsureLayout()
         {
             bool created = EnsureFolder(Resources);
             created |= EnsureFolder(Incarnations);
             created |= EnsureFolder(EntityPresets);
+            created |= EnsureModuleCatalog();
 
             if (created) AssetDatabase.Refresh();
+        }
+
+        // Creates a single empty ModuleKindCatalog if none exists anywhere in the
+        // project (the drawer aggregates every catalog it finds). The kinds list is
+        // left empty for you to fill in the editor. Returns true when created.
+        static bool EnsureModuleCatalog()
+        {
+            if (AssetDatabase.FindAssets("t:ModuleKindCatalog").Length > 0) return false;
+
+            var catalog = ScriptableObject.CreateInstance<ModuleKindCatalog>();
+            AssetDatabase.CreateAsset(catalog, ModuleCatalog);
+            return true;
         }
 
         // Creates the folder (and any missing parents) if it does not exist.

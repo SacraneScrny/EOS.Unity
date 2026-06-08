@@ -38,16 +38,18 @@ Incarnation prefabs live under a dedicated Resources folder — this is the
 "obvious separation" of incarnation content from the rest of the project:
 
 ```
-Assets/Resources/Incarnations/...      <- your incarnation prefabs
-Assets/Resources/EntityPresets/...     <- your EntityPreset assets (convenience)
-Assets/Resources/incarnations.json     <- generated index (do not edit by hand)
+Assets/Resources/Incarnations/...        <- your incarnation prefabs
+Assets/Resources/EntityPresets/...       <- your EntityPreset assets (convenience)
+Assets/Resources/ModuleKindCatalog.asset <- empty catalog, fill the kinds yourself
+Assets/Resources/incarnations.json       <- generated index (do not edit by hand)
 ```
 
-These folders are created automatically when the editor loads (or scripts
-recompile) if they don't already exist — no manual setup needed. You can also
-recreate them on demand via **Sackrany ▸ EOS ▸ Create EOS Folders**. Only the
-folders are created; the prefabs and presets inside are yours to author in the
-editor.
+This layout is created automatically when the editor loads (or scripts
+recompile) if it doesn't already exist — no manual setup needed. You can also
+recreate it on demand via **Sackrany ▸ EOS ▸ Create EOS Resources**. Only the
+folders and an empty `ModuleKindCatalog` are created (and only if no catalog
+exists anywhere yet); the prefabs, presets, and the catalog's kind list are
+yours to author in the editor.
 
 The index is rebuilt automatically by an `AssetPostprocessor` whenever anything
 under `Resources/Incarnations` changes, and via
