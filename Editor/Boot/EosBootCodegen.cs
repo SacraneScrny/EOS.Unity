@@ -16,8 +16,12 @@ namespace EOS.Unity.Editor
     // tie-break), and bakes the call order into a generated file that auto-runs on
     // RuntimeInitializeOnLoadMethod(BeforeSceneLoad). The file is only rewritten when
     // its content actually changes, so the post-import recompile reaches a fixed point
-    // instead of looping. When no [EosBoot] methods exist the file is removed, leaving
-    // boot fully explicit as before.
+    // instead of looping.
+    //
+    // The generated file's existence is the opt-in: it is created only on demand via
+    // "Sackrany/EOS/Create Auto Bootstrap". While it exists it is kept in sync on every
+    // recompile; if it doesn't exist nothing is generated. Even with no [EosBoot] steps
+    // or providers the file still boots EOS (the built-in EosLoop.Boot).
     static class EosBootCodegen
     {
         const string OutputDir = "Assets/EOS.Generated";
@@ -25,26 +29,34 @@ namespace EOS.Unity.Editor
         const string Tag = "[EOS]";
 
         [DidReloadScripts]
-        static void OnScriptsReloaded() => Regenerate();
-
-        [MenuItem("Sackrany/EOS/Regenerate Bootstrap")]
-        static void Regenerate()
+        static void OnScriptsReloaded()
         {
-            var steps = CollectBootSteps();
-            var providers = CollectConfigProviders();
+            // Keep an existing bootstrap in sync, but never create it automatically.
+            if (File.Exists(OutputPath))
+                Generate();
+        }
 
-            if (steps.Count == 0 && providers.Count == 0)
+        [MenuItem("Sackrany/EOS/Create Auto Bootstrap")]
+        static void CreateBootstrap()
+        {
+            bool existed = File.Exists(OutputPath);
+            Generate();
+
+            var asset = AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(OutputPath);
+            if (asset != null)
             {
-                if (File.Exists(OutputPath))
-                {
-                    AssetDatabase.DeleteAsset(OutputPath);
-                    Debug.Log($"{Tag} no [EosBoot]/[EosBootConfigProvider] methods — removed generated bootstrap");
-                }
-                return;
+                Selection.activeObject = asset;
+                EditorGUIUtility.PingObject(asset);
             }
 
-            var sortedProviders = Sort(providers);
-            var sortedSteps = Sort(steps);
+            Debug.Log(existed ? $"{Tag} bootstrap already exists — refreshed {OutputPath}"
+                              : $"{Tag} created bootstrap at {OutputPath}");
+        }
+
+        static void Generate()
+        {
+            var sortedProviders = Sort(CollectConfigProviders());
+            var sortedSteps = Sort(CollectBootSteps());
             var source = Emit(sortedProviders, sortedSteps);
 
             // Only touch the file when something changed — this is what stops the
@@ -55,7 +67,6 @@ namespace EOS.Unity.Editor
             Directory.CreateDirectory(OutputDir);
             File.WriteAllText(OutputPath, source);
             AssetDatabase.ImportAsset(OutputPath);
-            Debug.Log($"{Tag} regenerated bootstrap: {sortedProviders.Count} config provider(s), {sortedSteps.Count} step(s)");
         }
 
         // ---- collection -------------------------------------------------------
