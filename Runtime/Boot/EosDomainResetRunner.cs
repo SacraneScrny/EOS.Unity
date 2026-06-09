@@ -75,8 +75,8 @@ namespace EOS.Unity
         static bool Skip(Assembly asm)
         {
             var name = asm.GetName().Name;
-            return name.StartsWith("System", StringComparison.Ordinal)
-                || name.StartsWith("Unity", StringComparison.Ordinal)
+            return name.StartsWith("System.", StringComparison.Ordinal)
+                || name.StartsWith("Unity.", StringComparison.Ordinal)
                 || name.StartsWith("mscorlib", StringComparison.Ordinal)
                 || name.StartsWith("netstandard", StringComparison.Ordinal)
                 || name.StartsWith("Mono.", StringComparison.Ordinal);

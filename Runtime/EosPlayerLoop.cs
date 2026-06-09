@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using EOS.Core;
+using EOS.Logging;
+
 using UnityEngine.LowLevel;
 
 namespace EOS.Unity
@@ -54,6 +56,7 @@ namespace EOS.Unity
         {
             for (int i = 0; i < root.subSystemList.Length; i++)
             {
+                if (root.subSystemList[i].type == null) continue;
                 if (root.subSystemList[i].type != stageType) continue;
 
                 var stage = root.subSystemList[i];
@@ -65,6 +68,7 @@ namespace EOS.Unity
                 root.subSystemList[i] = stage;
                 return;
             }
+            EosLog.Error($"Failed to insert {marker.Name} into player loop, stage {stageType.Name} not found", nameof(EosPlayerLoop));
         }
 
         static void RemoveNodes(ref PlayerLoopSystem root)

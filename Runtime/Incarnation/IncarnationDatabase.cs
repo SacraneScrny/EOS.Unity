@@ -73,8 +73,15 @@ namespace EOS.Unity
 
             var current = id;
             int guard = 0;
-            while (_redirects.TryGetValue(current, out var next) && guard++ < 64)
+            while (_redirects != null && _redirects.TryGetValue(current, out var next))
+            {
+                if (guard++ >= 64)
+                {
+                    EosLog.Error($"Cyclic redirect detected for id '{id}'", nameof(IncarnationDatabase));
+                    return null;
+                }
                 current = next;
+            }
 
             return current;
         }

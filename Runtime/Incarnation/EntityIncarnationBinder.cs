@@ -10,12 +10,13 @@ namespace EOS.Unity
     {
         public EntityIncarnation Instantiate(EosEntity entity, string incarnationId)
         {
+            GameObject instance = null;
             try
             {
                 var prefab = IncarnationDatabase.Resolve(incarnationId);
                 if (prefab == null) return null;
 
-                var instance = UnityEngine.Object.Instantiate(prefab);
+                instance = UnityEngine.Object.Instantiate(prefab);
                 var view = instance.GetComponent<EntityIncarnation>();
                 if (view == null)
                 {
@@ -31,6 +32,7 @@ namespace EOS.Unity
             catch (Exception ex)
             {
                 EosLog.Error($"instantiate '{incarnationId}' threw: {ex.Message}", nameof(EntityIncarnationBinder));
+                if (instance != null) UnityEngine.Object.Destroy(instance);
                 return null;
             }
         }

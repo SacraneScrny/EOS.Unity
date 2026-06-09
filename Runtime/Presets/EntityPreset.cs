@@ -66,9 +66,10 @@ namespace EOS.Unity
                 return EosEntity.Null;
             }
 
+            var entity = EosEntity.Null;
             try
             {
-                var entity = new EosEntity(world, _entityName ?? string.Empty, false, _serializable);
+                entity = new EosEntity(world, _entityName ?? string.Empty, false, _serializable);
 
                 ApplySets(world, entity);
                 ApplyTags(world, entity);
@@ -83,6 +84,7 @@ namespace EOS.Unity
             catch (Exception ex)
             {
                 EosLog.Error($"instantiate '{name}' threw: {ex.Message}", nameof(EntityPreset));
+                if (entity.IsValid) entity.Destroy();
                 return EosEntity.Null;
             }
         }
