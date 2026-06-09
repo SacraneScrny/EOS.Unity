@@ -1,4 +1,3 @@
-using System.Runtime.CompilerServices;
 using EOS.Core;
 using EOS.Entities;
 using UnityEngine;
@@ -7,17 +6,13 @@ namespace EOS.Unity
 {
     public static class AssemblyExtensions
     {
-        static readonly ConditionalWeakTable<World, AssemblyService> _services = new();
-
         public static AssemblyService Assemblies(this World world)
         {
             if (world == null) return null;
-            if (_services.TryGetValue(world, out var service)) return service;
+            if (world.Services.TryGet<AssemblyService>(out var service)) return service;
 
             service = new AssemblyService(world);
-            _services.Add(world, service);
-
-            if (!world.IsIterating && !world.ServiceRegistry.Has<AssemblyService>())
+            if (!world.IsIterating)
                 world.ServiceRegistry.Register(service);
 
             return service;
