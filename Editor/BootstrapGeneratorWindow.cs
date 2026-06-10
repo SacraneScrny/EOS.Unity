@@ -90,7 +90,8 @@ namespace EOS.Unity.Editor
                 return "Class name must be a valid C# identifier.";
             if (!string.IsNullOrEmpty(_namespace) && !IsValidNamespace(_namespace))
                 return "Namespace is not a valid C# namespace.";
-            if (!_folder.Replace('\\', '/').Equals("Assets"))
+            var normalizedFolder = _folder.Replace('\\', '/');
+            if (normalizedFolder != "Assets" && !normalizedFolder.StartsWith("Assets/"))
                 return "Folder must be inside Assets.";
             if (File.Exists(path))
                 return $"{path} already exists and will not be overwritten — rename or pick another folder.";

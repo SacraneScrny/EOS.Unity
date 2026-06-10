@@ -87,9 +87,21 @@ namespace EOS.Unity
 
         bool AttachCore(EosEntity parent, string socketId, EosEntity module, Vector3 localPosition, Quaternion localRotation)
         {
-            if (!parent.IsValid || !module.IsValid) return false;
-            if (module.Has<AttachedTo>()) return false;
-            if (!IsSocketFree(parent, socketId)) return false;
+            if (!parent.IsValid || !module.IsValid)
+            {
+                EosLog.Warning($"deferred attach to socket '{socketId}' dropped: parent or module is no longer valid", nameof(AssemblyService));
+                return false;
+            }
+            if (module.Has<AttachedTo>())
+            {
+                EosLog.Warning($"deferred attach to socket '{socketId}' dropped: module is already attached", nameof(AssemblyService));
+                return false;
+            }
+            if (!IsSocketFree(parent, socketId))
+            {
+                EosLog.Warning($"deferred attach dropped: socket '{socketId}' is occupied", nameof(AssemblyService));
+                return false;
+            }
 
             var asm = parent.Has<EntityAssembly>() ? parent.Get<EntityAssembly>() : parent.Add<EntityAssembly>();
             asm.Hold(socketId, module);
@@ -107,12 +119,20 @@ namespace EOS.Unity
             return true;
         }
 
+        internal void NotifyDetachedOnDispose(EosEntity parent, EosEntity module, string socketId)
+            => _world.Event(new ModuleDetached(parent, module, socketId));
+
         bool DetachCore(EosEntity module)
         {
-            if (!module.IsValid || !module.TryGet<AttachedTo>(out var link)) return false;
+            if (!module.IsValid || !module.TryGet<AttachedTo>(out var link))
+            {
+                EosLog.Warning("deferred detach dropped: module is no longer valid or not attached", nameof(AssemblyService));
+                return false;
+            }
 
             var parent = link.Parent;
             var socketId = link.SocketId;
+            link.Detaching = true;
 
             if (parent.IsValid && parent.TryGet<EntityAssembly>(out var asm))
                 asm.ReleaseIfHolds(socketId, module);
@@ -125,6 +145,6 @@ namespace EOS.Unity
         }
 
         void Defer(EosEntity anchor, Action action)
-            => _world.AfterUpdate.Schedule(anchor).If(_ => { action(); return true; });
+            => _world.AfterCurrentPhase.Schedule(anchor).If(_ => { action(); return true; });
     }
 }

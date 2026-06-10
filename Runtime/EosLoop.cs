@@ -43,8 +43,9 @@ namespace EOS.Unity
             if (!IsBooted) return;
             EosPlayerLoop.Uninstall();
             EosDebugDrawer.Remove();
-            IncarnationDatabase.Unload();
             Universe.Shutdown();
+            ViewPoolRegistry.ClearAll();
+            IncarnationDatabase.Unload();
             IsBooted = false;
         }
     }

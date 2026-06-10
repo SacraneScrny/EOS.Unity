@@ -20,9 +20,9 @@ namespace EOS.Unity
             var root = PlayerLoop.GetCurrentPlayerLoop();
             RemoveNodes(ref root);
 
-            InsertInto(ref root, typeof(UnityEngine.PlayerLoop.FixedUpdate), typeof(EosFixedUpdate), OnFixedUpdate, false);
+            InsertInto(ref root, typeof(UnityEngine.PlayerLoop.FixedUpdate), typeof(EosFixedUpdate), OnFixedUpdate, true);
             InsertInto(ref root, typeof(UnityEngine.PlayerLoop.Update), typeof(EosUpdate), OnUpdate, true);
-            InsertInto(ref root, typeof(UnityEngine.PlayerLoop.PreLateUpdate), typeof(EosLateUpdate), OnLateUpdate, false);
+            InsertInto(ref root, typeof(UnityEngine.PlayerLoop.PreLateUpdate), typeof(EosLateUpdate), OnLateUpdate, true);
 
             PlayerLoop.SetPlayerLoop(root);
             _installed = true;

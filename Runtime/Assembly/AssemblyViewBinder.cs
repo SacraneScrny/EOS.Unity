@@ -26,6 +26,7 @@ namespace EOS.Unity
             var parent = link.Parent;
             if (!parent.IsValid || !module.IsValid)
             {
+                EosLog.Warning($"view bind for socket '{link.SocketId}' skipped: parent or module is no longer valid", nameof(AssemblyViewBinder));
                 link.ViewBound = true;
                 return true;
             }
@@ -42,12 +43,23 @@ namespace EOS.Unity
                 return true;
             }
 
-            if (KindMismatch(module, socket))
+            var socketKind = ModuleKind.Of(socket.Kind);
+            if (socketKind.IsValid)
             {
-                EosLog.Error($"module kind mismatches socket '{link.SocketId}' (kind '{socket.Kind}') on '{parent.Name}'", nameof(AssemblyViewBinder));
-                link.ViewBound = true;
-                module.Detach();
-                return true;
+                if (!module.TryGet<Module>(out var m))
+                {
+                    EosLog.Error($"socket '{link.SocketId}' on '{parent.Name}' requires kind '{socket.Kind}' but module '{module.Name}' has no Module component", nameof(AssemblyViewBinder));
+                    link.ViewBound = true;
+                    module.Detach();
+                    return true;
+                }
+                if (m.Kind != socketKind)
+                {
+                    EosLog.Error($"module '{module.Name}' kind '{m.Kind}' mismatches socket '{link.SocketId}' (kind '{socket.Kind}') on '{parent.Name}'", nameof(AssemblyViewBinder));
+                    link.ViewBound = true;
+                    module.Detach();
+                    return true;
+                }
             }
 
             var t = moduleGo.transform;
@@ -62,14 +74,6 @@ namespace EOS.Unity
         {
             var go = GetViewObject(module);
             if (go != null) go.transform.SetParent(null, true);
-        }
-
-        static bool KindMismatch(EosEntity module, Socket socket)
-        {
-            var socketKind = ModuleKind.Of(socket.Kind);
-            if (!socketKind.IsValid) return false;
-            if (!module.TryGet<Module>(out var m)) return true;
-            return m.Kind != socketKind;
         }
     }
 }

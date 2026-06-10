@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using EOS.Core;
 using EOS.Entities;
+using EOS.Extensions;
 using EOS.Logging;
 
 namespace EOS.Unity
@@ -51,6 +52,12 @@ namespace EOS.Unity
                     {
                         EosLog.Warning($"default module '{def.Module.name}' could not attach to socket '{def.SocketId}'", nameof(AssemblyDefaults));
                         module.Destroy();
+                    }
+                    else if (world.IsIterating)
+                    {
+                        world.AfterCurrentPhase.Schedule(module)
+                            .If(e => !e.Has<AttachedTo>())
+                            .Destroy();
                     }
                 }
             }
