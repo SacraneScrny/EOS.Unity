@@ -12,14 +12,14 @@ namespace EOS.Unity
         {
             if (_instance != null) return;
             var go = new GameObject("EOS Debug Drawer") { hideFlags = HideFlags.HideAndDontSave };
-            DontDestroyOnLoad(go);
             _instance = go.AddComponent<EosDebugDrawer>();
         }
 
         public static void Remove()
         {
             if (_instance == null) return;
-            Destroy(_instance.gameObject);
+            if (Application.isPlaying) Destroy(_instance.gameObject);
+            else DestroyImmediate(_instance.gameObject);
             _instance = null;
         }
 

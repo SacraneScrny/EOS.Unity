@@ -11,6 +11,7 @@ namespace EOS.Unity
 
         static Dictionary<string, string> _idToPath;
         static Dictionary<string, string> _redirects;
+        static Dictionary<string, GameObject> _prefabCache;
 
         public static bool IsLoaded => _idToPath != null;
 
@@ -18,6 +19,7 @@ namespace EOS.Unity
         {
             _idToPath = new Dictionary<string, string>();
             _redirects = new Dictionary<string, string>();
+            _prefabCache = new Dictionary<string, GameObject>();
 
             try
             {
@@ -47,6 +49,7 @@ namespace EOS.Unity
         {
             _idToPath = null;
             _redirects = null;
+            _prefabCache = null;
         }
 
         public static GameObject Resolve(string id)
@@ -60,10 +63,17 @@ namespace EOS.Unity
                 return null;
             }
 
+            if (_prefabCache.TryGetValue(resolved, out var cached) && cached != null)
+                return cached;
+
             var prefab = Resources.Load<GameObject>(path);
             if (prefab == null)
+            {
                 EosLog.Error($"Resources.Load failed for '{path}' (id '{id}')", nameof(IncarnationDatabase));
+                return null;
+            }
 
+            _prefabCache[resolved] = prefab;
             return prefab;
         }
 

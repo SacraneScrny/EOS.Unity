@@ -14,18 +14,18 @@ namespace EOS.Unity
             {
                 var prefab = IncarnationDatabase.Resolve(incarnationId);
                 if (prefab == null) return null;
-                return UnityEngine.Object.Instantiate(prefab);
+                return ViewPoolRegistry.Spawn(prefab);
             }
             catch (Exception ex)
             {
-                EosLog.Error($"instantiate '{incarnationId}' threw: {ex.Message}", nameof(GameObjectBinder));
+                EosLog.Error($"instantiate '{incarnationId}' threw: {ex}", nameof(GameObjectBinder));
                 return null;
             }
         }
 
         public void Destroy(EosEntity entity, GameObject view)
         {
-            if (view != null) UnityEngine.Object.Destroy(view);
+            if (view != null) ViewPoolRegistry.Despawn(view);
         }
 
         public void Sync(EosEntity entity, GameObject view) { }

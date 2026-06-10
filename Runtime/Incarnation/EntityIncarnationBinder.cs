@@ -16,12 +16,12 @@ namespace EOS.Unity
                 var prefab = IncarnationDatabase.Resolve(incarnationId);
                 if (prefab == null) return null;
 
-                instance = UnityEngine.Object.Instantiate(prefab);
+                instance = ViewPoolRegistry.Spawn(prefab);
                 var view = instance.GetComponent<EntityIncarnation>();
                 if (view == null)
                 {
                     EosLog.Error($"prefab '{incarnationId}' has no EntityIncarnation component", nameof(EntityIncarnationBinder));
-                    UnityEngine.Object.Destroy(instance);
+                    ViewPoolRegistry.Despawn(instance);
                     return null;
                 }
 
@@ -31,8 +31,8 @@ namespace EOS.Unity
             }
             catch (Exception ex)
             {
-                EosLog.Error($"instantiate '{incarnationId}' threw: {ex.Message}", nameof(EntityIncarnationBinder));
-                if (instance != null) UnityEngine.Object.Destroy(instance);
+                EosLog.Error($"instantiate '{incarnationId}' threw: {ex}", nameof(EntityIncarnationBinder));
+                if (instance != null) ViewPoolRegistry.Despawn(instance);
                 return null;
             }
         }
@@ -42,7 +42,8 @@ namespace EOS.Unity
             if (view == null) return;
             try { view.InvokeUnbind(); }
             catch (Exception ex) { EosLog.Error($"OnUnbind threw: {ex.Message}", nameof(EntityIncarnationBinder)); }
-            if (view != null) UnityEngine.Object.Destroy(view.gameObject);
+            view.Entity = EosEntity.Null;
+            if (view != null) ViewPoolRegistry.Despawn(view.gameObject);
         }
 
         public void Sync(EosEntity entity, EntityIncarnation view)

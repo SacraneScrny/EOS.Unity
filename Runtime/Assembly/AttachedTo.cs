@@ -1,6 +1,7 @@
 using System;
 using EOS.Entities;
 using EOS.Extensions;
+using EOS.Logging;
 using EOS.Objects;
 using EOS.Serialization;
 using UnityEngine;
@@ -17,11 +18,26 @@ namespace EOS.Unity
         public Quaternion LocalRotation = Quaternion.identity;
 
         internal bool ViewBound;
+        internal bool Detaching;
 
         protected override void OnDispose()
         {
+            if (Detaching) return;
+
             if (Parent.IsValid && Parent.TryGet<EntityAssembly>(out var asm))
                 asm.ReleaseIfHolds(SocketId, Entity);
+
+            AssemblyViewBinder.Unbind(Entity);
+
+            try
+            {
+                if (Services.TryGet<AssemblyService>(out var assemblies))
+                    assemblies.NotifyDetachedOnDispose(Parent, Entity, SocketId);
+            }
+            catch (Exception ex)
+            {
+                EosLog.Error($"detach notification threw: {ex}", nameof(AttachedTo));
+            }
         }
 
         Type IObjectSerializable.DataType => typeof(AttachedToData);
