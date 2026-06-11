@@ -2,12 +2,13 @@ using System;
 using System.Collections.Generic;
 using EOS.Entities;
 using EOS.Objects;
+using EOS.Objects.Interfaces;
 using EOS.Serialization;
 
 namespace EOS.Unity
 {
     [Serializable]
-    public sealed class EntityAssembly : EosObject, IObjectSerializable
+    public sealed class EntityAssembly : EosObject, IObjectSerializable, IPoolableObject
     {
         Dictionary<string, EosEntity> _modules;
         Dictionary<string, EosEntity> Map => _modules ??= new Dictionary<string, EosEntity>();
@@ -62,6 +63,8 @@ namespace EOS.Unity
             for (int i = 0; i < snapshot.Count; i++)
                 if (snapshot[i].IsValid)
                     snapshot[i].Destroy();
+
+            _modules.Clear();
         }
 
         Type IObjectSerializable.DataType => typeof(AssemblyData);

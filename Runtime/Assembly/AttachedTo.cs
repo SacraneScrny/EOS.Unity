@@ -3,41 +3,45 @@ using EOS.Entities;
 using EOS.Extensions;
 using EOS.Logging;
 using EOS.Objects;
+using EOS.Objects.Interfaces;
 using EOS.Serialization;
 using UnityEngine;
 
 namespace EOS.Unity
 {
     [Serializable]
-    public sealed class AttachedTo : EosObject, IObjectSerializable
+    public sealed class AttachedTo : EosObject, IObjectSerializable, IPoolableObject
     {
         public EosEntity Parent { get; internal set; }
         public string SocketId { get; internal set; }
-
-        public Vector3 LocalPosition;
-        public Quaternion LocalRotation = Quaternion.identity;
 
         internal bool ViewBound;
         internal bool Detaching;
 
         protected override void OnDispose()
         {
-            if (Detaching) return;
-
-            if (Parent.IsValid && Parent.TryGet<EntityAssembly>(out var asm))
-                asm.ReleaseIfHolds(SocketId, Entity);
-
-            AssemblyViewBinder.Unbind(Entity);
-
-            try
+            if (!Detaching)
             {
-                if (Services.TryGet<AssemblyService>(out var assemblies))
-                    assemblies.NotifyDetachedOnDispose(Parent, Entity, SocketId);
+                if (Parent.IsValid && Parent.TryGet<EntityAssembly>(out var asm))
+                    asm.ReleaseIfHolds(SocketId, Entity);
+
+                AssemblyViewBinder.Unbind(Entity);
+
+                try
+                {
+                    if (Services.TryGet<AssemblyService>(out var assemblies))
+                        assemblies.NotifyDetachedOnDispose(Parent, Entity, SocketId);
+                }
+                catch (Exception ex)
+                {
+                    EosLog.Error($"detach notification threw: {ex}", nameof(AttachedTo));
+                }
             }
-            catch (Exception ex)
-            {
-                EosLog.Error($"detach notification threw: {ex}", nameof(AttachedTo));
-            }
+
+            Parent = EosEntity.Null;
+            SocketId = null;
+            ViewBound = false;
+            Detaching = false;
         }
 
         Type IObjectSerializable.DataType => typeof(AttachedToData);
@@ -46,8 +50,8 @@ namespace EOS.Unity
         {
             ParentLocalId = Parent.Id,
             SocketId = SocketId,
-            LocalPosition = LocalPosition,
-            LocalRotation = LocalRotation,
+            LocalPosition = Vector3.zero,
+            LocalRotation = Quaternion.identity,
         };
 
         void IObjectSerializable.DeserializeData(object data, IDeserializeContext ctx)
@@ -56,9 +60,18 @@ namespace EOS.Unity
 
             Parent = ctx.Resolve(d.ParentLocalId);
             SocketId = d.SocketId;
-            LocalPosition = d.LocalPosition;
-            LocalRotation = d.LocalRotation;
             ViewBound = false;
+
+            var rotation = d.LocalRotation;
+            if (rotation.x == 0f && rotation.y == 0f && rotation.z == 0f && rotation.w == 0f)
+                rotation = Quaternion.identity;
+
+            if (d.LocalPosition != Vector3.zero || rotation != Quaternion.identity)
+            {
+                var transform = Entity.Has<EntityTransform>() ? Entity.Get<EntityTransform>() : Entity.Add<EntityTransform>();
+                transform.LocalPosition = d.LocalPosition;
+                transform.LocalRotation = rotation;
+            }
         }
     }
 

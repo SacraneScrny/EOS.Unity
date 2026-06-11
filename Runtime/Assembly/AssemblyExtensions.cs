@@ -24,7 +24,7 @@ namespace EOS.Unity
         public static bool AttachTo(this EosEntity module, EosEntity parent, string socketId, Vector3 localPosition, Quaternion localRotation)
             => module.World != null && module.World.Assemblies().Attach(parent, socketId, module, localPosition, localRotation);
 
-        public static bool Detach(this EosEntity module)
+        public static bool DetachFromSocket(this EosEntity module)
             => module.World != null && module.World.Assemblies().Detach(module);
 
         public static bool TryGetModule(this EosEntity parent, string socketId, out EosEntity module)

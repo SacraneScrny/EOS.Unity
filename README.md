@@ -416,7 +416,7 @@ Runtime composition of entities from typed, swappable modules — a rifle with s
 - **`SocketSet` + `Socket`** (`Sackrany/EOS/Socket Set`) — authored on the **incarnation prefab** root. Each socket: `Id` (stable string), `Kind` (accepted kind name, dropdown via `[ModuleKindField]`), `Anchor` (the transform a child view is parented under). Draws axis gizmos + labels in the scene view.
 - **`Module`** (component) — on a module entity, advertises what it *is* (`Kind`). Serialized by kind name.
 - **`EntityAssembly`** (component) — on the root entity; the authoritative socket→child map. `IsFree(socketId)`, `TryGetModule(socketId, out e)`, `Collect(list)`. Destroying the root **cascades** to all attached modules.
-- **`AttachedTo`** (component) — the child-side back-reference: `Parent`, `SocketId`, plus a per-attachment **local offset** (`LocalPosition`, `LocalRotation`) that survives saves — the same scope can sit at different rail positions on different rifles.
+- **`AttachedTo`** (component) — the child-side back-reference: `Parent`, `SocketId`. The per-attachment **local offset** lives in the module's `EntityTransform` (`LocalPosition`, `LocalRotation`, `LocalScale`) and survives saves — the same scope can sit at different rail positions on different rifles.
 
 ### Kind authoring
 
@@ -437,10 +437,11 @@ scope.AttachTo(rifle, "Optics");                // snap to anchor, reparent view
 // or with an explicit local offset within the socket anchor:
 scope.AttachTo(rifle, "Optics", new Vector3(0, 0, 0.03f), Quaternion.identity);
 
-// nudge an attached module along its rail; the offset is saved with it:
+// nudge an attached module along its rail; the offset is saved with it
+// (stored in the module's EntityTransform):
 world.Assemblies().SetLocalOffset(scope, new Vector3(0, 0, 0.05f), Quaternion.identity);
 
-scope.Detach();                                 // or Destroy(rifle) cascades to modules
+scope.DetachFromSocket();                       // or Destroy(rifle) cascades to modules
 ```
 
 `Attach` validates in order: parent has `EntityAssembly`; the parent's view exposes a `SocketSet` containing `socketId`; the socket is free; the module's `Module.Kind` matches the socket's accepted kind. On success it records the link both ways, reparents the module's view under the socket anchor (applying the offset), and emits a `ModuleAttached` event; `Detach` reverses everything and emits `ModuleDetached`. Both are EOS events (`EventExecute(ModuleAttached e)`).
