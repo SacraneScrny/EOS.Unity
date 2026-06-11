@@ -10,6 +10,7 @@ namespace EOS.Unity
         {
             EosDomainReset.Reset();
             UnityLogHandler.Install();
+            EosDomainResetRunner.Run();
 
             IncarnationBridge.Register(new GameObjectBinder());
             IncarnationBridge.Register(new EntityIncarnationBinder());

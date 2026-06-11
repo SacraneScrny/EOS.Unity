@@ -9,6 +9,8 @@ namespace EOS.Unity
 
         public static void Boot(EosBootConfig config = null)
         {
+            if (IsBooted) return;
+            
             config ??= new EosBootConfig();
 
             UnityLogHandler.MinLevel = config.MinLogLevel;
@@ -17,6 +19,11 @@ namespace EOS.Unity
             {
                 EosProfiler.Backend = new UnityProfilerBackend();
                 EosProfiler.Enabled = true;
+            }
+            else
+            {
+                EosProfiler.Backend = NullProfilerBackend.Instance;
+                EosProfiler.Enabled = false;
             }
 
             IncarnationDatabase.Load();
@@ -33,9 +40,12 @@ namespace EOS.Unity
 
         public static void Shutdown()
         {
+            if (!IsBooted) return;
             EosPlayerLoop.Uninstall();
             EosDebugDrawer.Remove();
-            Universe.Off();
+            Universe.Shutdown();
+            ViewPoolRegistry.ClearAll();
+            IncarnationDatabase.Unload();
             IsBooted = false;
         }
     }

@@ -23,10 +23,15 @@ namespace EOS.Unity.Editor
         SerializedProperty _components;
         SerializedProperty _sets;
         SerializedProperty _setOverrides;
+        SerializedProperty _defaultModules;
 
         readonly PresetEditorUtility.PickerController _picker = new();
         string[] _incarnationIds;
         string _key;
+
+        string _socketCacheId = "\0";
+        string[] _socketIds = Array.Empty<string>();
+        string[] _socketKinds = Array.Empty<string>();
 
         void OnEnable()
         {
@@ -39,6 +44,7 @@ namespace EOS.Unity.Editor
             _components = serializedObject.FindProperty("_components");
             _sets = serializedObject.FindProperty("_sets");
             _setOverrides = serializedObject.FindProperty("_setOverrides");
+            _defaultModules = serializedObject.FindProperty("_defaultModules");
             _key = PresetEditorUtility.AssetKey(target);
             ReloadIds();
         }
@@ -88,7 +94,112 @@ namespace EOS.Unity.Editor
             EditorGUILayout.LabelField("Components", EditorStyles.boldLabel);
             PresetEditorUtility.DrawComponentList(serializedObject, _components, _picker, _key, Repaint);
 
+            EditorGUILayout.Space();
+            DrawDefaultModules();
+
             EditorGUI.indentLevel--;
+        }
+
+        void DrawDefaultModules()
+        {
+            if (_defaultModules == null) return;
+
+            EditorGUILayout.LabelField("Default Modules (assembly)", EditorStyles.boldLabel);
+
+            RefreshSocketCache();
+
+            if (_socketIds.Length > 0)
+            {
+                EditorGUILayout.LabelField("Prefab sockets", EditorStyles.miniBoldLabel);
+                EditorGUI.indentLevel++;
+                for (int i = 0; i < _socketIds.Length; i++)
+                    EditorGUILayout.LabelField($"• {_socketIds[i]}", $"kind: {_socketKinds[i]}");
+                EditorGUI.indentLevel--;
+                EditorGUILayout.Space(2f);
+            }
+            else if (!string.IsNullOrEmpty(_incarnationId.stringValue))
+            {
+                EditorGUILayout.HelpBox("Incarnation prefab has no SocketSet (or is not resolvable). Socket ids are free text.", MessageType.None);
+            }
+
+            int remove = -1;
+            for (int i = 0; i < _defaultModules.arraySize; i++)
+            {
+                var element = _defaultModules.GetArrayElementAtIndex(i);
+                var socketId = element.FindPropertyRelative("SocketId");
+                var module = element.FindPropertyRelative("Module");
+
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    DrawSocketIdField(socketId);
+                    EditorGUILayout.PropertyField(module, GUIContent.none);
+                    if (GUILayout.Button("✕", GUILayout.Width(22f))) remove = i;
+                }
+            }
+
+            if (remove >= 0)
+                _defaultModules.DeleteArrayElementAtIndex(remove);
+
+            if (GUILayout.Button("Add Default Module"))
+                _defaultModules.InsertArrayElementAtIndex(_defaultModules.arraySize);
+        }
+
+        void DrawSocketIdField(SerializedProperty socketId)
+        {
+            if (_socketIds.Length == 0)
+            {
+                socketId.stringValue = EditorGUILayout.TextField(socketId.stringValue, GUILayout.Width(130f));
+                return;
+            }
+
+            int selected = Array.IndexOf(_socketIds, socketId.stringValue);
+            var options = new List<string>(_socketIds) { "<custom…>" };
+            int shown = selected >= 0 ? selected : _socketIds.Length;
+
+            int picked = EditorGUILayout.Popup(shown, options.ToArray(), GUILayout.Width(130f));
+            if (picked != shown && picked >= 0 && picked < _socketIds.Length)
+                socketId.stringValue = _socketIds[picked];
+            else if (selected < 0)
+                socketId.stringValue = EditorGUILayout.TextField(socketId.stringValue, GUILayout.Width(110f));
+        }
+
+        void RefreshSocketCache()
+        {
+            var id = _incarnationId.stringValue ?? string.Empty;
+            if (id == _socketCacheId) return;
+
+            _socketCacheId = id;
+            _socketIds = Array.Empty<string>();
+            _socketKinds = Array.Empty<string>();
+
+            if (string.IsNullOrEmpty(id) || !File.Exists(IndexAssetPath)) return;
+
+            try
+            {
+                var index = JsonUtility.FromJson<IncarnationIndex>(File.ReadAllText(IndexAssetPath));
+                var entry = index?.Entries?.FirstOrDefault(e => e.Id == id);
+                if (entry == null || string.IsNullOrEmpty(entry.Path)) return;
+
+                var prefab = Resources.Load<GameObject>(entry.Path);
+                var set = prefab != null ? prefab.GetComponent<SocketSet>() : null;
+                if (set?.Sockets == null) return;
+
+                var ids = new List<string>();
+                var kinds = new List<string>();
+                foreach (var socket in set.Sockets)
+                {
+                    if (socket == null || string.IsNullOrEmpty(socket.Id)) continue;
+                    ids.Add(socket.Id);
+                    kinds.Add(socket.Kind ?? string.Empty);
+                }
+
+                _socketIds = ids.ToArray();
+                _socketKinds = kinds.ToArray();
+            }
+            catch
+            {
+                // leave caches empty; socket ids fall back to free text
+            }
         }
 
         void DrawSets()

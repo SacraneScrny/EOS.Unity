@@ -57,17 +57,27 @@ namespace EOS.Unity.Editor
 
             for (int i = 0; i < moved.Length && i < movedFrom.Length; i++)
             {
-                if (!Under(moved[i], IncarnationsFolder) && !Under(movedFrom[i], IncarnationsFolder)) continue;
-                if (!IsPrefab(moved[i])) continue;
+                bool wasInside = Under(movedFrom[i], IncarnationsFolder) && IsPrefab(movedFrom[i]);
+                bool isInside = Under(moved[i], IncarnationsFolder) && IsPrefab(moved[i]);
 
-                var oldId = ToId(movedFrom[i]);
-                var newId = ToId(moved[i]);
-                if (oldId == newId) continue;
+                if (wasInside && isInside)
+                {
+                    var oldId = ToId(movedFrom[i]);
+                    var newId = ToId(moved[i]);
+                    if (oldId == newId) continue;
 
-                Debug.LogWarning(
-                    $"[EOS] incarnation id changed '{oldId}' -> '{newId}'. " +
-                    "Saves/references using the old id will break. To keep them, add a redirect to " +
-                    $"incarnations.json: {{ \"OldId\": \"{oldId}\", \"NewId\": \"{newId}\" }}");
+                    Debug.LogWarning(
+                        $"[EOS] incarnation id changed '{oldId}' -> '{newId}'. " +
+                        "Saves/references using the old id will break. To keep them, add a redirect to " +
+                        $"incarnations.json: {{ \"OldId\": \"{oldId}\", \"NewId\": \"{newId}\" }}");
+                }
+                else if (wasInside)
+                {
+                    var oldId = ToId(movedFrom[i]);
+                    Debug.LogWarning(
+                        $"[EOS] incarnation '{oldId}' moved out of {IncarnationsFolder} and was removed from the index. " +
+                        "Saves/references using this id will break.");
+                }
             }
         }
 

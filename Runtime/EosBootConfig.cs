@@ -5,6 +5,7 @@ using EOS.Logging;
 
 namespace EOS.Unity
 {
+    [Serializable]
     public sealed class EosBootConfig
     {
         public bool EnableProfiler;

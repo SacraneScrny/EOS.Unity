@@ -9,7 +9,6 @@ namespace EOS.Unity
     {
         [SerializeField] EntityPreset _preset;
         [SerializeField] bool _spawnOnStart = true;
-        [SerializeField] bool _bootIfNeeded = true;
         [SerializeField] bool _destroyAfterSpawn;
 
         public EntityPreset Preset
@@ -22,7 +21,10 @@ namespace EOS.Unity
 
         void Start()
         {
-            if (_spawnOnStart) Spawn();
+            if (_spawnOnStart)
+            {
+                Spawn();
+            }
         }
 
         public EosEntity Spawn()
@@ -33,8 +35,11 @@ namespace EOS.Unity
                 return EosEntity.Null;
             }
 
-            if (_bootIfNeeded && !EosLoop.IsBooted)
-                EosLoop.Boot();
+            if (!EosLoop.IsBooted)
+            {
+                EosLog.Error($"EOS is not booted; cannot spawn preset '{_preset.name}'", nameof(EntityPresetSpawner));
+                return EosEntity.Null;
+            }
 
             LastSpawned = _preset.Instantiate();
 
