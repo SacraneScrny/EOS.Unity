@@ -15,7 +15,17 @@ namespace EOS.Unity
         public AssemblyService(World world) => _world = world;
 
         public bool Attach(EosEntity parent, string socketId, EosEntity module)
-            => Attach(parent, socketId, module, Vector3.zero, Quaternion.identity);
+        {
+            if (!Validate(parent, socketId, module)) return false;
+
+            if (_world.IsIterating)
+            {
+                Defer(module, () => AttachCore(parent, socketId, module, false, Vector3.zero, Quaternion.identity));
+                return true;
+            }
+
+            return AttachCore(parent, socketId, module, false, Vector3.zero, Quaternion.identity);
+        }
 
         public bool Attach(EosEntity parent, string socketId, EosEntity module, Vector3 localPosition, Quaternion localRotation)
         {
@@ -23,11 +33,11 @@ namespace EOS.Unity
 
             if (_world.IsIterating)
             {
-                Defer(module, () => AttachCore(parent, socketId, module, localPosition, localRotation));
+                Defer(module, () => AttachCore(parent, socketId, module, true, localPosition, localRotation));
                 return true;
             }
 
-            return AttachCore(parent, socketId, module, localPosition, localRotation);
+            return AttachCore(parent, socketId, module, true, localPosition, localRotation);
         }
 
         public bool Detach(EosEntity module)
@@ -45,19 +55,15 @@ namespace EOS.Unity
 
         public bool SetLocalOffset(EosEntity module, Vector3 localPosition, Quaternion localRotation)
         {
-            if (!module.IsValid || !module.TryGet<AttachedTo>(out var link)) return false;
+            if (!module.IsValid || !module.Has<AttachedTo>()) return false;
 
-            link.LocalPosition = localPosition;
-            link.LocalRotation = localRotation;
-
-            var go = AssemblyViewBinder.GetViewObject(module);
-            if (go != null && go.transform.parent != null)
+            if (_world.IsIterating && !module.Has<EntityTransform>())
             {
-                go.transform.localPosition = localPosition;
-                go.transform.localRotation = localRotation;
+                Defer(module, () => SetOffsetCore(module, localPosition, localRotation));
+                return true;
             }
 
-            return true;
+            return SetOffsetCore(module, localPosition, localRotation);
         }
 
         public bool TryGetModule(EosEntity parent, string socketId, out EosEntity module)
@@ -81,11 +87,12 @@ namespace EOS.Unity
             if (string.IsNullOrEmpty(socketId)) { EosLog.Error("attach: socketId is empty", nameof(AssemblyService)); return false; }
             if (parent == module) { EosLog.Error("attach: cannot attach an entity to itself", nameof(AssemblyService)); return false; }
             if (module.Has<AttachedTo>()) { EosLog.Error("attach: module is already attached", nameof(AssemblyService)); return false; }
+            if (_world.Hierarchy.IsDescendantOf(parent, module)) { EosLog.Error("attach: attaching would create a hierarchy cycle", nameof(AssemblyService)); return false; }
             if (!IsSocketFree(parent, socketId)) { EosLog.Error($"attach: socket '{socketId}' is occupied", nameof(AssemblyService)); return false; }
             return true;
         }
 
-        bool AttachCore(EosEntity parent, string socketId, EosEntity module, Vector3 localPosition, Quaternion localRotation)
+        bool AttachCore(EosEntity parent, string socketId, EosEntity module, bool applyOffset, Vector3 localPosition, Quaternion localRotation)
         {
             if (!parent.IsValid || !module.IsValid)
             {
@@ -95,6 +102,11 @@ namespace EOS.Unity
             if (module.Has<AttachedTo>())
             {
                 EosLog.Warning($"deferred attach to socket '{socketId}' dropped: module is already attached", nameof(AssemblyService));
+                return false;
+            }
+            if (_world.Hierarchy.IsDescendantOf(parent, module))
+            {
+                EosLog.Warning($"deferred attach to socket '{socketId}' dropped: attaching would create a hierarchy cycle", nameof(AssemblyService));
                 return false;
             }
             if (!IsSocketFree(parent, socketId))
@@ -109,9 +121,12 @@ namespace EOS.Unity
             var link = module.Add<AttachedTo>();
             link.Parent = parent;
             link.SocketId = socketId;
-            link.LocalPosition = localPosition;
-            link.LocalRotation = localRotation;
             link.ViewBound = false;
+
+            _world.Hierarchy.SetParent(module, parent);
+
+            if (applyOffset)
+                SetOffsetCore(module, localPosition, localRotation);
 
             AssemblyViewBinder.TryBind(module, link);
 
@@ -140,7 +155,24 @@ namespace EOS.Unity
             AssemblyViewBinder.Unbind(module);
             module.Remove<AttachedTo>();
 
+            if (_world.Hierarchy.GetParent(module) == parent)
+                _world.Hierarchy.SetParent(module, EosEntity.Null);
+
             _world.Event(new ModuleDetached(parent, module, socketId));
+            return true;
+        }
+
+        bool SetOffsetCore(EosEntity module, Vector3 localPosition, Quaternion localRotation)
+        {
+            if (!module.IsValid)
+            {
+                EosLog.Warning("deferred offset dropped: module is no longer valid", nameof(AssemblyService));
+                return false;
+            }
+
+            var transform = module.Has<EntityTransform>() ? module.Get<EntityTransform>() : module.Add<EntityTransform>();
+            transform.LocalPosition = localPosition;
+            transform.LocalRotation = localRotation;
             return true;
         }
 

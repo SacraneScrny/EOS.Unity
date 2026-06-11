@@ -14,11 +14,11 @@ into `Assembly-CSharp` with the core, like the rest of EOS.Unity).
 | `Socket.cs` | `Socket` (id + kind + anchor) and `SocketSet` MonoBehaviour (+ gizmos) authored on the view prefab |
 | `Module.cs` | `Module` component — advertises a module entity's `ModuleKind` |
 | `EntityAssembly.cs` | root component — authoritative `socketId → child` map (+ snapshot data classes) |
-| `AttachedTo.cs` | child-side link — parent, socket, and the per-attachment local offset |
+| `AttachedTo.cs` | child-side link — parent + socket (local offsets live in `EntityTransform`) |
 | `AssemblyEvents.cs` | `ModuleAttached` / `ModuleDetached` event structs |
-| `AssemblyService.cs` | `Attach` / `Detach` / `SetLocalOffset` / queries (immediate or ECB-deferred) |
-| `AssemblyExtensions.cs` | `world.Assemblies()`, `module.AttachTo(...)`, `module.Detach()`, `parent.TryGetModule(...)` |
-| `AssemblyViewBinder.cs` | resolves views, reparents a module under its socket anchor, applies offset |
+| `AssemblyService.cs` | `Attach` / `Detach` / `SetLocalOffset` (writes `EntityTransform`) / queries (immediate or ECB-deferred) |
+| `AssemblyExtensions.cs` | `world.Assemblies()`, `module.AttachTo(...)`, `module.DetachFromSocket()`, `parent.TryGetModule(...)` |
+| `AssemblyViewBinder.cs` | resolves views, reparents a module under its socket anchor, seeds TRS from `EntityTransform` |
 | `AssemblyViewBindSystem.cs` | re-applies view parenting once views exist (load / deferred attach) |
 
 ## Quick use
@@ -37,13 +37,18 @@ scope.AttachTo(rifle, "Optics");                       // snap to the anchor
 world.Assemblies().SetLocalOffset(scope,               // nudge along the rail (saved)
     new Vector3(0, 0, 0.03f), Quaternion.identity);
 
-scope.Detach();                                        // or Destroy(rifle) cascades to modules
+scope.DetachFromSocket();                              // or Destroy(rifle) cascades to modules
 ```
 
+Attaching also sets the module's parent in the core's native hierarchy
+(`World.Hierarchy`), and the local offset is stored in the module's
+`EntityTransform` — the same component plain (non-socket) parent-child links use.
+
 Save/load is handled by the core `WorldSerializer` — `EntityAssembly`, `Module`,
-and `AttachedTo` are ordinary serializable components, so a saved assembly is
-restored with all its modules and their offsets, and the view hierarchy is rebuilt
-by `AssemblyViewBindSystem`. See the design doc §5–§6 for the timing details.
+`AttachedTo` and `EntityTransform` are ordinary serializable components, so a saved
+assembly is restored with all its modules and their offsets, and the view hierarchy
+is rebuilt by `AssemblyViewBindSystem`. See the design doc §5–§6 for the timing
+details (offsets have since moved from `AttachedTo` to `EntityTransform`).
 
 ## Phase 2 (authoring) — done
 

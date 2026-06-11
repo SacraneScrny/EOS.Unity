@@ -50,22 +50,31 @@ namespace EOS.Unity
                 {
                     EosLog.Error($"socket '{link.SocketId}' on '{parent.Name}' requires kind '{socket.Kind}' but module '{module.Name}' has no Module component", nameof(AssemblyViewBinder));
                     link.ViewBound = true;
-                    module.Detach();
+                    module.DetachFromSocket();
                     return true;
                 }
                 if (m.Kind != socketKind)
                 {
                     EosLog.Error($"module '{module.Name}' kind '{m.Kind}' mismatches socket '{link.SocketId}' (kind '{socket.Kind}') on '{parent.Name}'", nameof(AssemblyViewBinder));
                     link.ViewBound = true;
-                    module.Detach();
+                    module.DetachFromSocket();
                     return true;
                 }
             }
 
             var t = moduleGo.transform;
             t.SetParent(socket.Anchor, false);
-            t.localPosition = link.LocalPosition;
-            t.localRotation = link.LocalRotation;
+            if (module.TryGet<EntityTransform>(out var offset))
+            {
+                t.localPosition = offset.LocalPosition;
+                t.localRotation = offset.LocalRotation;
+                t.localScale = offset.LocalScale;
+            }
+            else
+            {
+                t.localPosition = Vector3.zero;
+                t.localRotation = Quaternion.identity;
+            }
             link.ViewBound = true;
             return true;
         }

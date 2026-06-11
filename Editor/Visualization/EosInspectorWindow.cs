@@ -6,6 +6,7 @@ using UnityEngine;
 using EOS.Core;
 using EOS.Diagnostics;
 using EOS.Entities;
+using EOS.Extensions;
 
 namespace EOS.Unity.Editor
 {
@@ -245,7 +246,39 @@ namespace EOS.Unity.Editor
             EditorGUILayout.LabelField($"Entity #{entity.Id}  '{entity.Name}'  v{entity.Version}", EditorStyles.boldLabel);
             var key = EosIntrospection.StableKey(world, entity);
             if (!string.IsNullOrEmpty(key)) EditorGUILayout.LabelField("Stable key", key);
-            EditorGUILayout.LabelField("Active", entity.IsActive.ToString());
+            EditorGUILayout.LabelField("Active", $"self: {entity.IsActiveSelf}   in hierarchy: {entity.IsActive}");
+
+            var parent = entity.GetParent();
+            if (parent.IsValid)
+            {
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    EditorGUILayout.LabelField("Parent", GUILayout.Width(EditorGUIUtility.labelWidth - 4));
+                    if (GUILayout.Button($"#{parent.Id}  {parent.Name}", EditorStyles.miniButton))
+                    {
+                        _selectedEntity = parent;
+                        _hasSelection = true;
+                    }
+                }
+            }
+
+            int childCount = entity.ChildCount();
+            if (childCount > 0)
+            {
+                EditorGUILayout.LabelField($"Children ({childCount})");
+                foreach (var child in entity.Children())
+                {
+                    using (new EditorGUILayout.HorizontalScope())
+                    {
+                        GUILayout.Space(EditorGUIUtility.labelWidth);
+                        if (GUILayout.Button($"#{child.Id}  {child.Name}", EditorStyles.miniButton))
+                        {
+                            _selectedEntity = child;
+                            _hasSelection = true;
+                        }
+                    }
+                }
+            }
 
             var tags = EosIntrospection.Tags(world, entity, _tagBuffer);
             EditorGUILayout.LabelField("Tags", tags.Count == 0 ? "(none)" : string.Join(", ", tags));

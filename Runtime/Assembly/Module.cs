@@ -1,14 +1,17 @@
 using System;
 using EOS.Objects;
+using EOS.Objects.Interfaces;
 using EOS.Serialization;
 using UnityEngine;
 
 namespace EOS.Unity
 {
     [Serializable]
-    public sealed class Module : EosObject, IObjectSerializable
+    public sealed class Module : EosObject, IObjectSerializable, IPoolableObject
     {
         [SerializeField, ModuleKindField] string _kind;
+
+        protected override void OnDispose() => _kind = null;
 
         public ModuleKind Kind
         {
