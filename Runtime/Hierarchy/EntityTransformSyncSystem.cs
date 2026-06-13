@@ -44,16 +44,26 @@ namespace EOS.Unity
 
         static void ApplyLocal(Transform target, Vector3 position, Quaternion rotation, Vector3 scale)
         {
-            if (target.localPosition != position) target.localPosition = position;
-            if (target.localRotation != rotation) target.localRotation = rotation;
-            if (target.localScale != scale) target.localScale = scale;
+            if (Differs(target.localPosition, position)) target.localPosition = position;
+            if (Differs(target.localRotation, rotation)) target.localRotation = rotation;
+            if (Differs(target.localScale, scale)) target.localScale = scale;
         }
 
         static void ApplyWorld(Transform target, Vector3 position, Quaternion rotation, Vector3 scale)
         {
-            if (target.position != position) target.position = position;
-            if (target.rotation != rotation) target.rotation = rotation;
-            if (target.localScale != scale) target.localScale = scale;
+            if (Differs(target.position, position)) target.position = position;
+            if (Differs(target.rotation, rotation)) target.rotation = rotation;
+            if (Differs(target.localScale, scale)) target.localScale = scale;
+        }
+
+        static bool Differs(Vector3 a, Vector3 b)
+        {
+            return a.x != b.x || a.y != b.y || a.z != b.z;
+        }
+
+        static bool Differs(Quaternion a, Quaternion b)
+        {
+            return a.x != b.x || a.y != b.y || a.z != b.z || a.w != b.w;
         }
     }
 }
