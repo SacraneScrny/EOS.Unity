@@ -11,7 +11,7 @@ namespace EOS.Unity
         public static void Ensure()
         {
             if (_instance != null) return;
-            var go = new GameObject("EOS Debug Drawer") { hideFlags = HideFlags.HideAndDontSave };
+            var go = new GameObject("EOS Debug Drawer") { hideFlags = HideFlags.DontSave };
             _instance = go.AddComponent<EosDebugDrawer>();
         }
 

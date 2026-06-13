@@ -50,8 +50,6 @@ namespace EOS.Unity
         {
             ParentLocalId = Parent.Id,
             SocketId = SocketId,
-            LocalPosition = Vector3.zero,
-            LocalRotation = Quaternion.identity,
         };
 
         void IObjectSerializable.DeserializeData(object data, IDeserializeContext ctx)
@@ -61,17 +59,6 @@ namespace EOS.Unity
             Parent = ctx.Resolve(d.ParentLocalId);
             SocketId = d.SocketId;
             ViewBound = false;
-
-            var rotation = d.LocalRotation;
-            if (rotation.x == 0f && rotation.y == 0f && rotation.z == 0f && rotation.w == 0f)
-                rotation = Quaternion.identity;
-
-            if (d.LocalPosition != Vector3.zero || rotation != Quaternion.identity)
-            {
-                var transform = Entity.Has<EntityTransform>() ? Entity.Get<EntityTransform>() : Entity.Add<EntityTransform>();
-                transform.LocalPosition = d.LocalPosition;
-                transform.LocalRotation = rotation;
-            }
         }
     }
 
@@ -80,7 +67,5 @@ namespace EOS.Unity
     {
         public int ParentLocalId;
         public string SocketId;
-        public Vector3 LocalPosition;
-        public Quaternion LocalRotation;
     }
 }
