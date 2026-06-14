@@ -13,16 +13,8 @@ using EOS.Systems.Groups;
 
 namespace EOS.Unity.Editor
 {
-    /// <summary>
-    /// Static structural model derived from the EOS core: systems (with their phase,
-    /// update-order edges, query signature), the <see cref="SystemGroup"/> tree, and the
-    /// live data archetypes. Built by reflection over the public attribute/type surface,
-    /// so it needs no changes to the core.
-    /// </summary>
     internal static class EosVizModel
     {
-        // ---- Systems -----------------------------------------------------------------
-
         public sealed class SystemInfo
         {
             public Type Type;
@@ -32,17 +24,17 @@ namespace EOS.Unity.Editor
             public bool IsEvent;
             public bool Reactive;
 
-            public Type Group;                       // [Group(typeof(...))]
-            public readonly List<Type> After = new(); // [UpdateAfter]
-            public readonly List<Type> Before = new();// [UpdateBefore]
-            public int Order;                         // [UpdateOrder]
+            public Type Group;
+            public readonly List<Type> After = new();
+            public readonly List<Type> Before = new();
+            public int Order;
 
             public readonly List<Type> Include = new();
             public readonly List<Type> Optional = new();
             public readonly List<Type> Exclude = new();
             public readonly List<string> Tags = new();
 
-            public int Layer;  // computed for layout
+            public int Layer;
 
             public string Id => Type.FullName ?? Type.Name;
 
@@ -55,18 +47,9 @@ namespace EOS.Unity.Editor
             }
         }
 
-        // Structural reflection is code-only and never changes at runtime, so it is reflected
-        // once per type and cached for the lifetime of the domain (cleared on assembly reload).
-        // Only the live bits (Enabled/Phase) are refreshed per sample, with no reflection.
         static readonly Dictionary<Type, SystemInfo> _structCache = new();
         static List<SystemInfo> _reusable;
 
-        /// <summary>
-        /// All systems. When the universe is live we read enabled/phase from the running
-        /// instances; otherwise we reflect every <see cref="EosSystem"/> subclass in the
-        /// domain (best-effort phase via a throwaway instance). The expensive attribute
-        /// reflection is cached; repeated calls only re-read live state and re-layer.
-        /// </summary>
         public static List<SystemInfo> Systems(IReadOnlyWorld world)
         {
             var infos = _reusable ??= new List<SystemInfo>();
@@ -77,7 +60,7 @@ namespace EOS.Unity.Editor
                 foreach (var system in world.Systems.All)
                 {
                     var info = StructFor(system.GetType());
-                    info.Enabled = system.IsEnabled;  // live, no reflection
+                    info.Enabled = system.IsEnabled;
                     info.Phase = system.UpdateType;
                     infos.Add(info);
                 }
@@ -92,7 +75,6 @@ namespace EOS.Unity.Editor
             return infos;
         }
 
-        /// <summary>Cached structural description of one system type (phase is best-effort until live).</summary>
         static SystemInfo StructFor(Type type)
         {
             if (_structCache.TryGetValue(type, out var cached)) return cached;
@@ -164,7 +146,7 @@ namespace EOS.Unity.Editor
             {
                 if (Activator.CreateInstance(type) is EosSystem s) return s.UpdateType;
             }
-            catch { /* not constructable without a world — fall through */ }
+            catch { }
             return UpdateType.Update;
         }
 
@@ -182,14 +164,11 @@ namespace EOS.Unity.Editor
             catch { return Array.Empty<Type>(); }
         }
 
-        /// <summary>Longest-path layering over UpdateBefore/After edges, per phase, for left-to-right layout.</summary>
         static void ComputeLayers(List<SystemInfo> infos)
         {
             var byType = new Dictionary<Type, SystemInfo>();
             foreach (var i in infos) byType[i.Type] = i;
 
-            // Build successor edges: After(target) => this depends on target (target -> this);
-            // Before(target) => this -> target.
             var succ = new Dictionary<SystemInfo, List<SystemInfo>>();
             var indeg = new Dictionary<SystemInfo, int>();
             foreach (var i in infos) { succ[i] = new List<SystemInfo>(); indeg[i] = 0; }
@@ -208,7 +187,6 @@ namespace EOS.Unity.Editor
                 foreach (var t in i.Before) if (byType.TryGetValue(t, out var dep)) Link(i, dep);
             }
 
-            // Kahn longest-path layering (cycles are tolerated: leftovers stay at layer 0).
             var queue = new Queue<SystemInfo>(infos.Where(i => indeg[i] == 0));
             foreach (var i in infos) i.Layer = 0;
             var remaining = new Dictionary<SystemInfo, int>(indeg);
@@ -223,8 +201,6 @@ namespace EOS.Unity.Editor
             }
         }
 
-        // ---- System group tree -------------------------------------------------------
-
         public sealed class GroupNode
         {
             public Type Type;
@@ -237,10 +213,6 @@ namespace EOS.Unity.Editor
             public string Id => Type?.FullName ?? Type?.Name ?? "<ungrouped>";
         }
 
-        /// <summary>
-        /// Builds the <see cref="SystemGroup"/> hierarchy (parent = base type) and attaches
-        /// each system to its <c>[Group]</c>. Systems without a group go under a synthetic root.
-        /// </summary>
         public static GroupNode GroupTree(IReadOnlyWorld world, List<SystemInfo> systems)
         {
             var root = new GroupNode { Type = null, Name = "(systems)" };
@@ -261,7 +233,6 @@ namespace EOS.Unity.Editor
                 return n;
             }
 
-            // Seed every known SystemGroup type so empty groups still show up.
             foreach (var t in SystemGroupTypes()) NodeFor(t);
 
             foreach (var s in systems)
@@ -291,19 +262,16 @@ namespace EOS.Unity.Editor
                 .Where(t => t != null && t.IsSubclassOf(typeof(SystemGroup)) && !t.IsAbstract);
         }
 
-        // ---- Data archetypes ---------------------------------------------------------
-
         public sealed class Archetype
         {
             public readonly List<Type> Components = new();
             public int Count;
-            public readonly List<EosEntity> Sample = new(); // capped
+            public readonly List<EosEntity> Sample = new();
             public string Label;
         }
 
         const int SampleCap = 32;
 
-        /// <summary>Distinct component-sets actually present on live entities, with counts.</summary>
         public static List<Archetype> DataArchetypes(IReadOnlyWorld world)
         {
             var map = new Dictionary<string, Archetype>();
@@ -334,11 +302,6 @@ namespace EOS.Unity.Editor
             return list;
         }
 
-        /// <summary>
-        /// Approximate match between a data archetype and a system query: mandatory includes
-        /// must be a subset of the archetype and excludes must not intersect. Interface
-        /// params and tag filters are not evaluated here (noted in the UI).
-        /// </summary>
         public static bool Matches(SystemInfo system, Archetype archetype)
         {
             var present = new HashSet<Type>(archetype.Components);

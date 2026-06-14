@@ -10,16 +10,6 @@ using EOS.Extensions;
 
 namespace EOS.Unity.Editor
 {
-    /// <summary>
-    /// Live, read-only visualizer for the EOS world: entities + components, the system
-    /// pipeline graph, and the group / archetype structure. Editor-only, IMGUI, polls the
-    /// public core API. The only mutation it performs is enabling/disabling system groups.
-    ///
-    /// Cost model: nothing runs while the window is closed (no static hooks, stripped from
-    /// builds). While open, all expensive gathering happens once per <see cref="OnInspectorUpdate"/>
-    /// tick (~10 Hz) into a snapshot; <see cref="OnGUI"/> only renders that snapshot and
-    /// handles input, so per-event repaints (mouse move, layout) are cheap.
-    /// </summary>
     public sealed class EosInspectorWindow : EditorWindow
     {
         enum Tab { Live, Systems, Groups }
@@ -42,7 +32,6 @@ namespace EOS.Unity.Editor
         readonly HashSet<string> _expanded = new();
         readonly List<string> _tagBuffer = new();
 
-        // ---- Snapshot (rebuilt on the throttled tick, only for the active tab) ----------
         IReadOnlyWorld _snapWorld;
         List<EosEntity> _snapEntities = new();
         List<EosIntrospection.StorageView> _snapStorages = new();
@@ -65,8 +54,6 @@ namespace EOS.Unity.Editor
             _dirty = true;
         }
 
-        // Unity calls this ~10x/sec while the window is open — the single place heavy work
-        // happens. Live worlds refresh every tick; in edit mode we only rebuild when dirty.
         void OnInspectorUpdate()
         {
             if (EosIntrospection.IsLive)
@@ -112,7 +99,6 @@ namespace EOS.Unity.Editor
         {
             DrawToolbar();
 
-            // Rebuild immediately when the user changes what is shown (snappy, one-off cost).
             if (_tab != _lastTab || _groupTab != _lastGroupTab || _worldIndex != _lastWorldIndex)
             {
                 _lastTab = _tab;
@@ -137,8 +123,6 @@ namespace EOS.Unity.Editor
                 case Tab.Groups: DrawGroups(_snapWorld); break;
             }
         }
-
-        // ---- Toolbar -----------------------------------------------------------------
 
         void DrawToolbar()
         {
@@ -181,15 +165,12 @@ namespace EOS.Unity.Editor
             return worlds[_worldIndex];
         }
 
-        // ---- Live tab ----------------------------------------------------------------
-
         void DrawLive(IReadOnlyWorld world)
         {
             if (world == null) { EditorGUILayout.HelpBox("No world selected.", MessageType.Info); return; }
 
             using (new EditorGUILayout.HorizontalScope())
             {
-                // Left: entity list (from snapshot).
                 using (new EditorGUILayout.VerticalScope(GUILayout.Width(270)))
                 {
                     _search = EditorGUILayout.TextField(_search, EditorStyles.toolbarSearchField);
@@ -213,7 +194,6 @@ namespace EOS.Unity.Editor
                     EditorGUILayout.EndScrollView();
                 }
 
-                // Right: entity detail + storages.
                 using (new EditorGUILayout.VerticalScope())
                 {
                     _detailScroll = EditorGUILayout.BeginScrollView(_detailScroll);
@@ -229,7 +209,6 @@ namespace EOS.Unity.Editor
             }
         }
 
-        // Cheap: id/name only (no per-entity component scan), so search stays free at any count.
         bool MatchesSearch(EosEntity entity)
         {
             if (string.IsNullOrEmpty(_search)) return true;
@@ -239,8 +218,6 @@ namespace EOS.Unity.Editor
                 && entity.Name.IndexOf(q, System.StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
-        // The selected entity's components are read live here — it is a single entity with a
-        // handful of components, so this stays cheap even on every repaint.
         void DrawEntityDetail(IReadOnlyWorld world, EosEntity entity)
         {
             EditorGUILayout.LabelField($"Entity #{entity.Id}  '{entity.Name}'  v{entity.Version}", EditorStyles.boldLabel);
@@ -318,8 +295,6 @@ namespace EOS.Unity.Editor
                 }
             }
         }
-
-        // ---- Systems tab -------------------------------------------------------------
 
         void DrawSystems(IReadOnlyWorld world)
         {
@@ -413,7 +388,6 @@ namespace EOS.Unity.Editor
 
         void LayoutSystems(List<EosVizModel.SystemInfo> systems, bool force)
         {
-            // Stack each phase in its own vertical band; within a band, x = update layer.
             const float colW = 210f, rowH = 84f, bandGap = 60f;
             var phaseOrder = new[] { UpdateType.Update, UpdateType.FixedUpdate, UpdateType.LateUpdate };
             float bandY = 20f;
@@ -465,8 +439,6 @@ namespace EOS.Unity.Editor
             };
         }
 
-        // ---- Groups & Archetypes tab -------------------------------------------------
-
         void DrawGroups(IReadOnlyWorld world)
         {
             using (new EditorGUILayout.HorizontalScope(EditorStyles.toolbar))
@@ -498,7 +470,6 @@ namespace EOS.Unity.Editor
 
         void DrawGroupNode(IReadOnlyWorld world, EosVizModel.GroupNode node, bool live, int depth)
         {
-            // Root is synthetic: render its children/systems flat.
             if (node.Type != null)
             {
                 using (new EditorGUILayout.HorizontalScope())
@@ -576,7 +547,6 @@ namespace EOS.Unity.Editor
         {
             var systems = _snapSystems;
 
-            // Group systems by identical query signature.
             var bySig = new Dictionary<string, List<EosVizModel.SystemInfo>>();
             foreach (var s in systems)
             {

@@ -11,19 +11,6 @@ using UnityEngine;
 
 namespace EOS.Unity.Editor
 {
-    // Self-assembling per-world bootstrap generator. After every script reload it collects all
-    // [EosWorldBootstrap] methods, sorts them (Order, then a stable type/method name tie-break) and
-    // bakes the call list into a generated file. The generated Register(World) is invoked by the core
-    // through EOS.Loader.WorldBootstrap.Provider on every World.Init() and World.Reset(), so the
-    // default world and any world created later all run through the same steps. The file is only
-    // rewritten when its content actually changes, so the post-import recompile reaches a fixed point
-    // instead of looping.
-    //
-    // The generated file's existence is the opt-in: it is created only on demand via
-    // "Sackrany/EOS/Create World Bootstrap". While it exists it is kept in sync on every recompile; if
-    // it doesn't exist nothing is generated and the core provider stays null (Apply is a no-op). The
-    // generated file installs itself into the core provider via RuntimeInitializeOnLoadMethod at
-    // SubsystemRegistration — strictly before any boot path creates the default world.
     static class EosWorldBootstrapCodegen
     {
         const string OutputDir = "Assets/EOS.Generated";
@@ -33,7 +20,6 @@ namespace EOS.Unity.Editor
         [DidReloadScripts]
         static void OnScriptsReloaded()
         {
-            // Keep an existing world bootstrap in sync, but never create it automatically.
             if (File.Exists(OutputPath))
                 Generate();
         }
@@ -60,8 +46,6 @@ namespace EOS.Unity.Editor
             var steps = Sort(Collect());
             var source = Emit(steps);
 
-            // Only touch the file when something changed — this is what stops the
-            // write -> import -> reload -> regenerate cycle from spinning forever.
             if (File.Exists(OutputPath) && File.ReadAllText(OutputPath) == source)
                 return;
 
@@ -69,8 +53,6 @@ namespace EOS.Unity.Editor
             File.WriteAllText(OutputPath, source);
             AssetDatabase.ImportAsset(OutputPath);
         }
-
-        // ---- collection -------------------------------------------------------
 
         sealed class Node
         {
@@ -132,8 +114,6 @@ namespace EOS.Unity.Editor
             return type.IsPublic;
         }
 
-        // ---- ordering ---------------------------------------------------------
-
         static List<Node> Sort(List<Node> nodes)
         {
             nodes.Sort(Compare);
@@ -147,8 +127,6 @@ namespace EOS.Unity.Editor
             c = string.CompareOrdinal(a.Type.FullName, b.Type.FullName);
             return c != 0 ? c : string.CompareOrdinal(a.MethodName, b.MethodName);
         }
-
-        // ---- emit -------------------------------------------------------------
 
         static string Emit(List<Node> steps)
         {

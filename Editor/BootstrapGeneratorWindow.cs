@@ -6,10 +6,6 @@ using UnityEngine;
 
 namespace EOS.Unity.Editor
 {
-    // Generates a ready-to-use EOS bootstrap MonoBehaviour so you never have to
-    // remember the correct boot pattern again: low execution order (boots before
-    // everything else), an IsBooted guard (safe across scene loads), and a
-    // serialized EosBootConfig you can tune in the inspector.
     public sealed class BootstrapGeneratorWindow : EditorWindow
     {
         const string FolderPrefKey = "EOS.BootstrapGenerator.Folder";

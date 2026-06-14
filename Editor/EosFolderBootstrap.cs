@@ -4,9 +4,6 @@ using UnityEngine;
 
 namespace EOS.Unity.Editor
 {
-    // Ensures the folders EOS relies on exist, so a fresh project does not have
-    // to create them by hand. Runs automatically when the editor loads / scripts
-    // recompile, and only touches the filesystem when a folder is missing.
     [InitializeOnLoad]
     static class EosFolderBootstrap
     {
@@ -17,7 +14,6 @@ namespace EOS.Unity.Editor
 
         static EosFolderBootstrap()
         {
-            // Defer: AssetDatabase is not guaranteed ready inside the static ctor.
             EditorApplication.delayCall += EnsureLayout;
         }
 
@@ -32,9 +28,6 @@ namespace EOS.Unity.Editor
             if (created) AssetDatabase.Refresh();
         }
 
-        // Creates a single empty ModuleKindCatalog if none exists anywhere in the
-        // project (the drawer aggregates every catalog it finds). The kinds list is
-        // left empty for you to fill in the editor. Returns true when created.
         static bool EnsureModuleCatalog()
         {
             if (AssetDatabase.FindAssets("t:ModuleKindCatalog").Length > 0) return false;
@@ -44,8 +37,6 @@ namespace EOS.Unity.Editor
             return true;
         }
 
-        // Creates the folder (and any missing parents) if it does not exist.
-        // Returns true when something was created.
         static bool EnsureFolder(string path)
         {
             if (AssetDatabase.IsValidFolder(path)) return false;

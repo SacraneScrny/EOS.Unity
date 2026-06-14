@@ -6,12 +6,6 @@ using UnityEngine;
 
 namespace EOS.Unity.Editor
 {
-    /// <summary>
-    /// Minimal IMGUI node canvas: pan (drag empty space), zoom (scroll wheel), and draggable
-    /// nodes wired by bezier edges. World-space node positions are owned by the caller via
-    /// <see cref="Positions"/> so layout survives tab/world switches; zoom only scales screen
-    /// geometry and font size, avoiding the usual GUI.matrix pitfalls.
-    /// </summary>
     internal sealed class EosGraphView
     {
         public Vector2 Pan;
@@ -19,7 +13,7 @@ namespace EOS.Unity.Editor
         public string Selected;
         public Action<string> OnSelect;
 
-        public readonly Dictionary<string, Vector2> Positions = new(); // world space, top-left
+        public readonly Dictionary<string, Vector2> Positions = new();
 
         const float BaseW = 168f;
         const float BaseH = 56f;
@@ -67,7 +61,6 @@ namespace EOS.Unity.Editor
             EnsureStyles();
             var e = Event.current;
 
-            // Background.
             EditorGUI.DrawRect(area, new Color(0.16f, 0.16f, 0.18f, 1f));
 
             GUI.BeginClip(area);
@@ -192,7 +185,7 @@ namespace EOS.Unity.Editor
         {
             string hit = null;
             foreach (var kv in rectById)
-                if (kv.Value.Contains(screen)) hit = kv.Key; // last wins ~ topmost drawn
+                if (kv.Value.Contains(screen)) hit = kv.Key;
             return hit;
         }
 

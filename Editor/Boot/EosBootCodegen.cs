@@ -11,17 +11,6 @@ using UnityEngine;
 
 namespace EOS.Unity.Editor
 {
-    // Self-assembling bootstrap generator. After every script reload it collects all
-    // [EosBoot] methods, topologically sorts them (Before/After constraints, Order as
-    // tie-break), and bakes the call order into a generated file that auto-runs on
-    // RuntimeInitializeOnLoadMethod(BeforeSceneLoad). The file is only rewritten when
-    // its content actually changes, so the post-import recompile reaches a fixed point
-    // instead of looping.
-    //
-    // The generated file's existence is the opt-in: it is created only on demand via
-    // "Sackrany/EOS/Create Auto Bootstrap". While it exists it is kept in sync on every
-    // recompile; if it doesn't exist nothing is generated. Even with no [EosBoot] steps
-    // or providers the file still boots EOS (the built-in EosLoop.Boot).
     static class EosBootCodegen
     {
         const string OutputDir = "Assets/EOS.Generated";
@@ -31,7 +20,6 @@ namespace EOS.Unity.Editor
         [DidReloadScripts]
         static void OnScriptsReloaded()
         {
-            // Keep an existing bootstrap in sync, but never create it automatically.
             if (File.Exists(OutputPath))
                 Generate();
         }
@@ -59,8 +47,6 @@ namespace EOS.Unity.Editor
             var sortedSteps = Sort(CollectBootSteps());
             var source = Emit(sortedProviders, sortedSteps);
 
-            // Only touch the file when something changed — this is what stops the
-            // write -> import -> reload -> regenerate cycle from spinning forever.
             if (File.Exists(OutputPath) && File.ReadAllText(OutputPath) == source)
                 return;
 
@@ -68,8 +54,6 @@ namespace EOS.Unity.Editor
             File.WriteAllText(OutputPath, source);
             AssetDatabase.ImportAsset(OutputPath);
         }
-
-        // ---- collection -------------------------------------------------------
 
         sealed class Node
         {
@@ -181,8 +165,6 @@ namespace EOS.Unity.Editor
             return type.IsPublic;
         }
 
-        // ---- ordering ---------------------------------------------------------
-
         static List<Node> Sort(List<Node> nodes)
         {
             var byType = new Dictionary<Type, List<Node>>();
@@ -218,13 +200,11 @@ namespace EOS.Unity.Editor
             foreach (var n in nodes)
             {
                 foreach (var r in n.After)
-                    foreach (var dep in Resolve(r)) Edge(dep, n);   // dep before n
+                    foreach (var dep in Resolve(r)) Edge(dep, n);
                 foreach (var r in n.Before)
-                    foreach (var dep in Resolve(r)) Edge(n, dep);   // n before dep
+                    foreach (var dep in Resolve(r)) Edge(n, dep);
             }
 
-            // Kahn's algorithm; among ready nodes pick the lowest Order then a stable
-            // name tie-break, so output is deterministic across runs.
             var ready = nodes.Where(n => indeg[n] == 0).ToList();
             var result = new List<Node>(nodes.Count);
 
@@ -258,8 +238,6 @@ namespace EOS.Unity.Editor
             c = string.CompareOrdinal(a.Type.FullName, b.Type.FullName);
             return c != 0 ? c : string.CompareOrdinal(a.MethodName, b.MethodName);
         }
-
-        // ---- emit -------------------------------------------------------------
 
         const string ConfigType = "global::EOS.Unity.EosBootConfig";
 

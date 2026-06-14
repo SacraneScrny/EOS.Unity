@@ -198,7 +198,6 @@ namespace EOS.Unity.Editor
             }
             catch
             {
-                // leave caches empty; socket ids fall back to free text
             }
         }
 

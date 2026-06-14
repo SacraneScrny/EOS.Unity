@@ -408,7 +408,7 @@ Builder API: `Add<T>()` (creates and returns the template), `Add<T>(instance)` /
 
 ## Entity assemblies (sockets & modules)
 
-Runtime composition of entities from typed, swappable modules — a rifle with scope/grip sockets, a tank with turret and cannon — with attach/detach at runtime, full save/load, and the view hierarchy following along. Design doc: [`EOS.UnityAssembly.md`](./EOS.UnityAssembly.md).
+Runtime composition of entities from typed, swappable modules — a rifle with scope/grip sockets, a tank with turret and cannon — with attach/detach at runtime, full save/load, and the view hierarchy following along.
 
 ### The model
 

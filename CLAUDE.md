@@ -16,9 +16,10 @@ EOS.Unity is the Unity consumer assembly for the engine-free EOS ECS core (a sib
 
 ## Code style
 
-- Follow the core's style: 4-space indentation, no aligning tabs, expression-bodied members where natural.
-- Comments are rare. XML doc summaries exist on the public boot attributes and some editor visualization code; do not add narrative inline comments elsewhere. The core itself allows **no comments at all**.
-- Error handling: `try/catch` + `EosLog.Error/Warning` with `nameof(TheClass)` as source — never swallow silently, never crash a boot step or a pool notification because user code threw.
+- No comments of any kind — same as the core.
+- No aligning tabs. Only standard indentation (4 spaces). Expression-bodied members where natural.
+- All error handling via `try/catch` + `EosLog.Error/Warning` — never swallow silently, never crash a boot step or a pool notification because user code threw.
+- Always pass `nameof(TheClass)` as the `source` argument to `EosLog` calls.
 - Editor windows/menus live under `Sackrany ▸ EOS ▸ ...`; asset menus under `Sackrany/EOS/...`. Keep new tooling consistent.
 
 ## Architecture
@@ -76,7 +77,7 @@ Opt-in layering: hierarchy alone (no `EntityTransform`) still mirrors view paren
 
 ### Entity assemblies (`Runtime/Assembly/` + `Editor/Assembly/`)
 
-Spec: `EOS.UnityAssembly.md` (historical — local offsets have since moved to `EntityTransform`). A typed, serializable parent→socket→child graph between entities, now a **typed overlay over the core's native hierarchy**: attaching also sets the native parent, so cascade destroy, hierarchical active state and `GetParent` work for modules automatically.
+A typed, serializable parent→socket→child graph between entities, a **typed overlay over the core's native hierarchy**: attaching also sets the native parent, so cascade destroy, hierarchical active state and `GetParent` work for modules automatically.
 
 - `ModuleKind` (readonly struct): interned int id + `Name`; `Of(string)`, `Of<TEnum>`, `None`; **serialized by name** (save-stable). `ModuleKindRegistry` is the interner. `ModuleKindCatalog` (ScriptableObject) + `[ModuleKindField]` + `ModuleKindFieldDrawer` give a dropdown over all catalogs (2 s cache, free-text fallback).
 - `SocketSet` MonoBehaviour on the **incarnation prefab** root, `Socket { Id, Kind, Anchor }`, gizmos. Resolved at runtime through the entity's incarnation view.

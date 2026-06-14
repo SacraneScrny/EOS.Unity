@@ -5,12 +5,6 @@ using EOS.Logging;
 
 namespace EOS.Unity
 {
-    /// <summary>
-    /// Discovers and runs every <see cref="EosDomainResetAttribute"/> method by
-    /// reflection. Called from <see cref="EosRuntimeBootstrap"/> at
-    /// <c>SubsystemRegistration</c>, after the core domain reset. Discovery is cached
-    /// for the lifetime of the loaded domain; the methods themselves run on every call.
-    /// </summary>
     public static class EosDomainResetRunner
     {
         const string Tag = nameof(EosDomainResetRunner);

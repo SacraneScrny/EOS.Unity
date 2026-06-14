@@ -11,17 +11,10 @@ using EOS.Storage;
 
 namespace EOS.Unity.Editor
 {
-    /// <summary>
-    /// Read-only bridge between the EOS core public API and the editor visualization.
-    /// Everything here is non-mutating and tolerant of a not-yet-booted universe, so the
-    /// window can be opened in edit mode without throwing. All reflection over component
-    /// values lives in this one place.
-    /// </summary>
     internal static class EosIntrospection
     {
         public static bool IsLive => Universe.IsEnabled && Universe.DefaultWorld != null;
 
-        /// <summary>Default world first, then any worlds created via <c>Universe.CreateWorld</c>.</summary>
         public static List<IReadOnlyWorld> Worlds()
         {
             var list = new List<IReadOnlyWorld>();
@@ -59,13 +52,11 @@ namespace EOS.Unity.Editor
         public static string StableKey(IReadOnlyWorld world, EosEntity entity)
             => world == null ? null : world.Entities.GetStableKey(entity);
 
-        // ---- Components on an entity -------------------------------------------------
-
         public readonly struct ComponentView
         {
             public readonly Type Type;
             public readonly string Name;
-            public readonly object Instance; // the live EosObject
+            public readonly object Instance;
             public readonly bool Ready;
 
             public ComponentView(Type type, string name, object instance, bool ready)
@@ -93,7 +84,6 @@ namespace EOS.Unity.Editor
             return list;
         }
 
-        /// <summary>Component component-type names present on the entity, sorted — the entity's data archetype.</summary>
         public static List<Type> ComponentTypes(IReadOnlyWorld world, EosEntity entity)
         {
             var list = new List<Type>();
@@ -104,8 +94,6 @@ namespace EOS.Unity.Editor
             list.Sort((a, b) => string.CompareOrdinal(a.Name, b.Name));
             return list;
         }
-
-        // ---- Field/property values of a single component -----------------------------
 
         public readonly struct FieldView
         {
@@ -155,8 +143,6 @@ namespace EOS.Unity.Editor
             catch { return "<unprintable>"; }
         }
 
-        // ---- Tags --------------------------------------------------------------------
-
         public static List<string> Tags(IReadOnlyWorld world, EosEntity entity, List<string> buffer = null)
         {
             buffer ??= new List<string>();
@@ -164,8 +150,6 @@ namespace EOS.Unity.Editor
             world.Tags.GetTagNames(entity, buffer);
             return buffer;
         }
-
-        // ---- Storages (component pools) ----------------------------------------------
 
         public readonly struct StorageView
         {
@@ -198,8 +182,6 @@ namespace EOS.Unity.Editor
             list.Sort((a, b) => string.CompareOrdinal(a.Name, b.Name));
             return list;
         }
-
-        // ---- Type name formatting (mirrors WorldDebug) -------------------------------
 
         public static string NiceName(Type type)
         {
