@@ -9,6 +9,7 @@ using UnityEngine;
 
 namespace EOS.Unity
 {
+    /// <summary>ScriptableObject authoring template for an entity: name/active/serializable flags, incarnation, tags, component templates, referenced component sets with per-type overrides, and default assembly modules. Call <see cref="Instantiate()"/> to spawn it.</summary>
     [CreateAssetMenu(menuName = "Sackrany/EOS/Entity Preset", fileName = "EntityPreset")]
     public class EntityPreset : ScriptableObject
     {

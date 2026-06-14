@@ -6,6 +6,7 @@ using UnityEngine;
 
 namespace EOS.Unity
 {
+    /// <summary>Reusable bundle of tags, component templates and an optional code module, referenced by one or more <see cref="EntityPreset"/>s to share common entity data.</summary>
     [CreateAssetMenu(menuName = "Sackrany/EOS/Component Set", fileName = "ComponentSet")]
     public sealed class EntityComponentSet : ScriptableObject
     {
@@ -23,10 +24,14 @@ namespace EOS.Unity
         [SerializeField]
         List<EosObject> _components = new();
 
+        /// <summary>Tags this set applies to every referencing entity.</summary>
         public IReadOnlyList<string> Tags => _tags;
+        /// <summary>Component templates this set contributes (one per type per entity).</summary>
         public IReadOnlyList<EosObject> Components => _components;
+        /// <summary>Optional code module that adds further components/tags at collect time; may be null.</summary>
         public ComponentSetModule Module => _module;
 
+        /// <summary>Materializes the set's tags and component templates (list first, then module) into a fresh <see cref="ComponentSetBuilder"/>; module exceptions are caught and logged.</summary>
         public ComponentSetBuilder Collect()
         {
             var builder = new ComponentSetBuilder();

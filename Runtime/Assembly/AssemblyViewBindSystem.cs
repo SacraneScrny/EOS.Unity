@@ -8,9 +8,11 @@ using EOS.Systems.Incarnation;
 
 namespace EOS.Unity
 {
+    /// <summary>Reparents module views under their socket anchors once both endpoint views exist, and detaches the socket link when native reparenting diverges from <see cref="AttachedTo"/>.</summary>
     [Group(typeof(IncarnationGroup))]
     public sealed class AssemblyViewBindSystem : EosSystem
     {
+        /// <summary>Runs this system in the Update phase.</summary>
         public override UpdateType UpdateType => UpdateType.Update;
 
         void EventExecute(ParentChanged e)

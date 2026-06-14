@@ -11,6 +11,7 @@ using UnityEngine;
 
 namespace EOS.Unity.Editor
 {
+    /// <summary>Generates <c>EosBootstrap.gen.cs</c> from <c>[EosBoot]</c> and <c>[EosBootConfigProvider]</c> methods (topologically ordered), opt-in by file existence and kept in sync on recompile. Created via <c>Sackrany ▸ EOS ▸ Create Auto Bootstrap</c>.</summary>
     static class EosBootCodegen
     {
         const string OutputDir = "Assets/EOS.Generated";

@@ -7,6 +7,7 @@ using EOS.CodeGen;
 
 namespace EOS.Unity.Editor
 {
+    /// <summary>Editor driver for the core's <see cref="EOS.CodeGen.SystemRegistryGenerator"/>: writes <c>EosGeneratedSystems.gen.cs</c> (zero-alloc system bodies), opt-in by file existence and refreshed on recompile. Created via <c>Sackrany ▸ EOS ▸ Create System Registry</c>.</summary>
     static class EosSystemRegistryCodegen
     {
         const string OutputDir = "Assets/EOS.Generated";

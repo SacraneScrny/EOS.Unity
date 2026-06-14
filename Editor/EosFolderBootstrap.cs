@@ -4,6 +4,7 @@ using UnityEngine;
 
 namespace EOS.Unity.Editor
 {
+    /// <summary>Creates the expected EOS resource folders and a default <see cref="ModuleKindCatalog"/> if missing, on load and via <c>Sackrany ▸ EOS ▸ Create EOS Resources</c>.</summary>
     [InitializeOnLoad]
     static class EosFolderBootstrap
     {

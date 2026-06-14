@@ -7,6 +7,7 @@ using UnityEngine.LowLevel;
 
 namespace EOS.Unity
 {
+    /// <summary>Inserts marker nodes at the start of Unity's FixedUpdate, Update, and PreLateUpdate stages that drive the <c>Universe</c> each frame.</summary>
     public static class EosPlayerLoop
     {
         struct EosFixedUpdate { }
@@ -15,6 +16,7 @@ namespace EOS.Unity
 
         static bool _installed;
 
+        /// <summary>Installs the EOS PlayerLoop nodes, first removing any stale ones; idempotent.</summary>
         public static void Install()
         {
             var root = PlayerLoop.GetCurrentPlayerLoop();
@@ -28,6 +30,7 @@ namespace EOS.Unity
             _installed = true;
         }
 
+        /// <summary>Removes the EOS PlayerLoop nodes; no-op if not installed.</summary>
         public static void Uninstall()
         {
             if (!_installed) return;

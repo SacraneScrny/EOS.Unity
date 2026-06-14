@@ -9,20 +9,26 @@ using UnityEngine;
 
 namespace EOS.Unity.Editor
 {
+    /// <summary>Shared IMGUI helpers for the preset/component-set inspectors: foldouts, component/tag lists, managed-reference blocks and concrete-type discovery.</summary>
     static class PresetEditorUtility
     {
         const string FoldoutPrefix = "EOS.Preset.Foldout.";
         const string DeleteIcon = "✕";
 
+        /// <summary>The button a component block row reports back: none, delete, revert or override.</summary>
         public enum RowAction { None, Delete, Revert, Override }
 
+        /// <summary>Holds the dropdown state and a one-shot pending type picked by an <see cref="ComponentPickerDropdown"/>.</summary>
         public sealed class PickerController
         {
+            /// <summary>Persistent dropdown UI state.</summary>
             public readonly AdvancedDropdownState State = new();
             Type _pending;
 
+            /// <summary>Queues a type to be consumed on the next inspector pass.</summary>
             public void Request(Type type) => _pending = type;
 
+            /// <summary>Returns and clears the pending type if one was requested.</summary>
             public bool TryConsume(out Type type)
             {
                 type = _pending;
@@ -31,12 +37,14 @@ namespace EOS.Unity.Editor
             }
         }
 
+        /// <summary>A stable per-asset key (asset GUID, or instance id when unsaved) used to namespace foldout prefs.</summary>
         public static string AssetKey(UnityEngine.Object obj)
         {
             var path = AssetDatabase.GetAssetPath(obj);
             return string.IsNullOrEmpty(path) ? obj.GetInstanceID().ToString() : AssetDatabase.AssetPathToGUID(path);
         }
 
+        /// <summary>Draws a header foldout whose open/closed state persists in <see cref="EditorPrefs"/> under <paramref name="key"/>.</summary>
         public static bool SectionFoldout(string key, string label)
         {
             var pref = FoldoutPrefix + key;
@@ -46,6 +54,7 @@ namespace EOS.Unity.Editor
             return now;
         }
 
+        /// <summary>Draws a foldable bordered block with optional Delete/Revert/Override buttons; returns the action the user clicked.</summary>
         public static RowAction ComponentBlock(
             string key, string displayName,
             bool showDelete, bool showRevert, bool showOverride, Action drawBody)
@@ -86,6 +95,7 @@ namespace EOS.Unity.Editor
             return action;
         }
 
+        /// <summary>Draws the child fields of a <c>[SerializeReference]</c> element, optionally read-only; shows a hint when there are none.</summary>
         public static void DrawManagedReferenceBody(SerializedProperty element, bool editable)
         {
             using (new EditorGUI.DisabledScope(!editable))
@@ -107,6 +117,7 @@ namespace EOS.Unity.Editor
             }
         }
 
+        /// <summary>Draws an editable list of <c>[SerializeReference]</c> component templates with add/delete/revert and the picker dropdown.</summary>
         public static void DrawComponentList(SerializedObject serializedObject, SerializedProperty list, PickerController picker, string ownerKey, Action repaint)
         {
             if (picker.TryConsume(out var pendingType))
@@ -165,6 +176,7 @@ namespace EOS.Unity.Editor
             DrawAddButton(picker, repaint);
         }
 
+        /// <summary>Draws a button that opens the concrete-<see cref="EosObject"/> picker dropdown.</summary>
         public static void DrawAddButton(PickerController picker, Action repaint, string label = "Add Component")
         {
             var rect = GUILayoutUtility.GetRect(new GUIContent(label), GUI.skin.button);
@@ -178,6 +190,7 @@ namespace EOS.Unity.Editor
             dropdown.Show(rect);
         }
 
+        /// <summary>Draws an editable string-tag list with per-row remove and an add button.</summary>
         public static void DrawTagList(SerializedObject serializedObject, SerializedProperty list, string header = "Tags")
         {
             EditorGUILayout.LabelField(header, EditorStyles.boldLabel);
@@ -210,6 +223,7 @@ namespace EOS.Unity.Editor
             }
         }
 
+        /// <summary>The short (unqualified, un-nested) type name of a <c>[SerializeReference]</c> element, or <c>(none)</c>.</summary>
         public static string ManagedShortName(SerializedProperty element)
         {
             var full = element.managedReferenceFullTypename;
@@ -224,6 +238,7 @@ namespace EOS.Unity.Editor
             return typeName;
         }
 
+        /// <summary>The type name without its generic-arity backtick suffix.</summary>
         public static string ShortName(Type type)
         {
             var name = type.Name;
@@ -231,8 +246,10 @@ namespace EOS.Unity.Editor
             return tick >= 0 ? name.Substring(0, tick) : name;
         }
 
+        /// <summary>All concrete, default-constructible <see cref="EosObject"/> types across loaded assemblies.</summary>
         public static IEnumerable<Type> ConcreteComponentTypes() => ConcreteTypesOf(typeof(EosObject));
 
+        /// <summary>All concrete, non-generic, default-constructible subtypes of <paramref name="baseType"/>, ordered by full name.</summary>
         public static IEnumerable<Type> ConcreteTypesOf(Type baseType)
         {
             return AppDomain.CurrentDomain.GetAssemblies()
@@ -255,6 +272,7 @@ namespace EOS.Unity.Editor
             dropdown.Show(rect);
         }
 
+        /// <summary>Draws a single optional <c>[SerializeReference]</c> field with Set/Change/Clear and an inline body editor.</summary>
         public static void DrawSingleManagedReference(
             SerializedObject serializedObject, SerializedProperty property, PickerController picker,
             Type baseType, string label, string key, Action repaint)

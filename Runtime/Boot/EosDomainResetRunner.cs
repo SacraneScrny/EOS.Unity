@@ -5,11 +5,13 @@ using EOS.Logging;
 
 namespace EOS.Unity
 {
+    /// <summary>Discovers and invokes all <see cref="EosDomainResetAttribute"/> methods via reflection, caching the delegates per domain.</summary>
     public static class EosDomainResetRunner
     {
         const string Tag = nameof(EosDomainResetRunner);
         static Action[] _resets;
 
+        /// <summary>Invokes every discovered domain-reset method (each try/caught); discovers and caches them on first call.</summary>
         public static void Run()
         {
             var resets = _resets ??= Discover();

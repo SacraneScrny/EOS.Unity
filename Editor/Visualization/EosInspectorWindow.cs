@@ -10,6 +10,7 @@ using EOS.Extensions;
 
 namespace EOS.Unity.Editor
 {
+    /// <summary>The EOS World Inspector window (menu <c>Sackrany ▸ EOS ▸ World Inspector</c>) with Live, Systems and Groups &amp; Archetypes tabs.</summary>
     public sealed class EosInspectorWindow : EditorWindow
     {
         enum Tab { Live, Systems, Groups }

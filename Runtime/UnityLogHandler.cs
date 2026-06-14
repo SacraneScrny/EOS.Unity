@@ -3,10 +3,13 @@ using UnityEngine;
 
 namespace EOS.Unity
 {
+    /// <summary>Routes <c>EosLog</c> output to the Unity console as <c>[EOS:source] message</c>, mapping levels to <c>Debug.Log/LogWarning/LogError</c>.</summary>
     public static class UnityLogHandler
     {
+        /// <summary>Minimum level forwarded to the console; entries below it are dropped before formatting.</summary>
         public static LogLevel MinLevel = LogLevel.Debug;
 
+        /// <summary>Hooks this handler into <c>EosLog.OnLog</c>.</summary>
         public static void Install()
         {
             EosLog.OnLog = Handle;

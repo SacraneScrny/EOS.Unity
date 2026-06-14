@@ -8,12 +8,14 @@ using UnityEngine;
 
 namespace EOS.Unity
 {
+    /// <summary>Applies each <see cref="EntityTransform"/> to its view every Update (local TRS for anchored views, world TRS otherwise); data flows ECS to view only.</summary>
     [Group(typeof(IncarnationGroup))]
     [UpdateOrder(UpdateOrderPhase.AfterAll)]
     [UpdateAfter(typeof(HierarchyViewSystem))]
     [UpdateBefore(typeof(IncarnationSyncSystem))]
     public sealed class EntityTransformSyncSystem : EosSystem
     {
+        /// <summary>Runs in the Update phase.</summary>
         public override UpdateType UpdateType => UpdateType.Update;
 
         void Execute(EntityTransform transform, EosEntity entity)

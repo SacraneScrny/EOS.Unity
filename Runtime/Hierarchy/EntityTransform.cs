@@ -8,13 +8,18 @@ using UnityEngine;
 
 namespace EOS.Unity
 {
+    /// <summary>Authoritative local TRS store for an entity's view, relative to its entity parent (socket anchor for assembly modules); ECS-authoritative and save-persistent.</summary>
     [Serializable]
     public sealed class EntityTransform : EosObject, IObjectSerializable, IPoolableObject
     {
+        /// <summary>Local position relative to the entity parent.</summary>
         public Vector3 LocalPosition = Vector3.zero;
+        /// <summary>Local rotation relative to the entity parent.</summary>
         public Quaternion LocalRotation = Quaternion.identity;
+        /// <summary>Local scale relative to the entity parent.</summary>
         public Vector3 LocalScale = Vector3.one;
 
+        /// <summary>World-space position composed along the entity hierarchy; setting it back-solves <see cref="LocalPosition"/>.</summary>
         public Vector3 WorldPosition
         {
             get
@@ -33,6 +38,7 @@ namespace EOS.Unity
             }
         }
 
+        /// <summary>World-space rotation composed along the entity hierarchy; setting it back-solves <see cref="LocalRotation"/>.</summary>
         public Quaternion WorldRotation
         {
             get
@@ -47,6 +53,7 @@ namespace EOS.Unity
             }
         }
 
+        /// <summary>World-space scale composed component-wise along the entity hierarchy (lossy, like Unity).</summary>
         public Vector3 LossyScale
         {
             get
@@ -56,6 +63,7 @@ namespace EOS.Unity
             }
         }
 
+        /// <summary>Computes the entity's full world TRS by composing parent world TRS with its own local TRS (identity if it has none).</summary>
         public static void GetWorldTrs(EosEntity entity, out Vector3 position, out Quaternion rotation, out Vector3 scale)
         {
             GetParentWorldTrs(entity, out position, out rotation, out scale);
@@ -63,6 +71,7 @@ namespace EOS.Unity
                 Compose(ref position, ref rotation, ref scale, t);
         }
 
+        /// <summary>Computes the entity's TRS relative to the given ancestor, composing across intermediate entities (identity at or above the ancestor).</summary>
         public static void GetTrsRelativeTo(EosEntity entity, EosEntity ancestor, out Vector3 position, out Quaternion rotation, out Vector3 scale)
         {
             if (!entity.IsValid || entity == ancestor)
@@ -111,6 +120,7 @@ namespace EOS.Unity
             scale = Vector3.Scale(scale, t.LocalScale);
         }
 
+        /// <summary>Resets local TRS to identity so a pooled instance is clean on reuse.</summary>
         protected override void OnDispose()
         {
             LocalPosition = Vector3.zero;
@@ -137,11 +147,15 @@ namespace EOS.Unity
         }
     }
 
+    /// <summary>Serializable snapshot of an <see cref="EntityTransform"/>'s local TRS for save/load round-tripping.</summary>
     [Serializable]
     public sealed class EntityTransformData
     {
+        /// <summary>Persisted local position.</summary>
         public Vector3 LocalPosition = Vector3.zero;
+        /// <summary>Persisted local rotation.</summary>
         public Quaternion LocalRotation = Quaternion.identity;
+        /// <summary>Persisted local scale.</summary>
         public Vector3 LocalScale = Vector3.one;
     }
 }

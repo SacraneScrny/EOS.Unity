@@ -9,6 +9,7 @@ using UnityEngine;
 
 namespace EOS.Unity.Editor
 {
+    /// <summary>Custom inspector for <see cref="EntityPreset"/>: Info/Data foldouts, component sets with override/revert, default modules and a play-mode Spawn button.</summary>
     [CustomEditor(typeof(EntityPreset))]
     public sealed class EntityPresetEditor : UnityEditor.Editor
     {
@@ -49,6 +50,7 @@ namespace EOS.Unity.Editor
             ReloadIds();
         }
 
+        /// <summary>Draws the Info and Data blocks and the play-mode Spawn button.</summary>
         public override void OnInspectorGUI()
         {
             serializedObject.Update();

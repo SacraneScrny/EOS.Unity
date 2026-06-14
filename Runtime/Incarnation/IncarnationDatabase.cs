@@ -5,16 +5,22 @@ using UnityEngine;
 
 namespace EOS.Unity
 {
+    /// <summary>
+    /// Loads <c>Resources/incarnations.json</c> and resolves incarnation ids (following redirects) to cached prefabs for the binders.
+    /// </summary>
     public static class IncarnationDatabase
     {
+        /// <summary>The Resources key of the incarnation index asset.</summary>
         public const string ResourceKey = "incarnations";
 
         static Dictionary<string, string> _idToPath;
         static Dictionary<string, string> _redirects;
         static Dictionary<string, GameObject> _prefabCache;
 
+        /// <summary>True once the index has been loaded from Resources.</summary>
         public static bool IsLoaded => _idToPath != null;
 
+        /// <summary>Loads the index from Resources, building the id-to-path and redirect tables; safe to call repeatedly.</summary>
         public static void Load()
         {
             _idToPath = new Dictionary<string, string>();
@@ -45,6 +51,7 @@ namespace EOS.Unity
             }
         }
 
+        /// <summary>Clears the loaded tables and prefab cache; called on shutdown.</summary>
         public static void Unload()
         {
             _idToPath = null;
@@ -52,6 +59,7 @@ namespace EOS.Unity
             _prefabCache = null;
         }
 
+        /// <summary>Resolves an incarnation id (following redirects) to its cached prefab, or null if not found; loads the index lazily.</summary>
         public static GameObject Resolve(string id)
         {
             if (_idToPath == null) Load();

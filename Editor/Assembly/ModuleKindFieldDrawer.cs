@@ -5,6 +5,7 @@ using UnityEngine;
 
 namespace EOS.Unity.Editor
 {
+    /// <summary>Property drawer for string fields marked <see cref="ModuleKindFieldAttribute"/>: a popup over all <see cref="ModuleKindCatalog"/> kinds (2 s cache) beside a free-text field for custom values.</summary>
     [CustomPropertyDrawer(typeof(ModuleKindFieldAttribute))]
     public sealed class ModuleKindFieldDrawer : PropertyDrawer
     {
@@ -13,6 +14,7 @@ namespace EOS.Unity.Editor
         static List<string> _cache;
         static double _next;
 
+        /// <summary>Draws the kind popup plus free-text field; falls back to a plain field when the property is not a string or no catalog kinds exist.</summary>
         public override void OnGUI(Rect position, SerializedProperty property, GUIContent label)
         {
             if (property.propertyType != SerializedPropertyType.String)

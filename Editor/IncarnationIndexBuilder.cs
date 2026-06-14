@@ -6,6 +6,7 @@ using UnityEngine;
 
 namespace EOS.Unity.Editor
 {
+    /// <summary>Keeps <c>incarnations.json</c> in sync with the prefabs under <c>Resources/Incarnations/</c>, rebuilding on asset import and warning with paste-ready redirect snippets on renames.</summary>
     public sealed class IncarnationIndexBuilder : AssetPostprocessor
     {
         const string ResourcesRoot = "Assets/Resources/";
@@ -21,6 +22,7 @@ namespace EOS.Unity.Editor
             Rebuild();
         }
 
+        /// <summary>Rebuilds the index from current prefabs while preserving any manually authored redirects, then writes and imports the JSON asset.</summary>
         [MenuItem("Sackrany/EOS/Rebuild Incarnation Index")]
         public static void Rebuild()
         {

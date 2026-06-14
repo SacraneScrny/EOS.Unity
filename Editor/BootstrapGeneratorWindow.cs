@@ -6,6 +6,7 @@ using UnityEngine;
 
 namespace EOS.Unity.Editor
 {
+    /// <summary>Wizard that writes a <c>GameBootstrap</c> MonoBehaviour which boots EOS correctly (low execution order, <c>IsBooted</c> guard, serialized config); never overwrites an existing file. Opened via <c>Sackrany ▸ EOS ▸ Create Default Bootstrap</c>.</summary>
     public sealed class BootstrapGeneratorWindow : EditorWindow
     {
         const string FolderPrefKey = "EOS.BootstrapGenerator.Folder";

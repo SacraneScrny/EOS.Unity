@@ -6,12 +6,14 @@ using UnityEngine;
 
 namespace EOS.Unity.Editor
 {
+    /// <summary>Namespace-tree <see cref="AdvancedDropdown"/> picker over a set of types, invoking a callback on selection.</summary>
     sealed class ComponentPickerDropdown : AdvancedDropdown
     {
         readonly Type[] _types;
         readonly Action<Type> _onPick;
         readonly Dictionary<AdvancedDropdownItem, Type> _byItem = new();
 
+        /// <summary>Creates a picker over <paramref name="types"/> that calls <paramref name="onPick"/> with the chosen type.</summary>
         public ComponentPickerDropdown(AdvancedDropdownState state, Type[] types, Action<Type> onPick) : base(state)
         {
             _types = types;

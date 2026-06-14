@@ -11,10 +11,13 @@ using EOS.Storage;
 
 namespace EOS.Unity.Editor
 {
+    /// <summary>Read-only polling of the live <see cref="Universe"/> for the World Inspector: worlds, entities, components, fields, tags and storages.</summary>
     internal static class EosIntrospection
     {
+        /// <summary>True when a booted, enabled default world is available to inspect.</summary>
         public static bool IsLive => Universe.IsEnabled && Universe.DefaultWorld != null;
 
+        /// <summary>The default world followed by all other live worlds.</summary>
         public static List<IReadOnlyWorld> Worlds()
         {
             var list = new List<IReadOnlyWorld>();
@@ -26,6 +29,7 @@ namespace EOS.Unity.Editor
             return list;
         }
 
+        /// <summary>A display label like <c>World #id 'key'</c>.</summary>
         public static string WorldLabel(IReadOnlyWorld world)
         {
             if (world == null) return "<none>";
@@ -33,6 +37,7 @@ namespace EOS.Unity.Editor
             return $"World #{world.Id}{key}";
         }
 
+        /// <summary>The number of alive entities in the world.</summary>
         public static int EntityCount(IReadOnlyWorld world)
         {
             if (world == null) return 0;
@@ -41,6 +46,7 @@ namespace EOS.Unity.Editor
             return n;
         }
 
+        /// <summary>A snapshot list of all alive entities in the world.</summary>
         public static List<EosEntity> Entities(IReadOnlyWorld world)
         {
             var list = new List<EosEntity>();
@@ -49,16 +55,23 @@ namespace EOS.Unity.Editor
             return list;
         }
 
+        /// <summary>The entity's serialization-stable key, or null.</summary>
         public static string StableKey(IReadOnlyWorld world, EosEntity entity)
             => world == null ? null : world.Entities.GetStableKey(entity);
 
+        /// <summary>A read-only snapshot of one component on an entity: its type, name, instance and ready/enabled state.</summary>
         public readonly struct ComponentView
         {
+            /// <summary>The component's concrete type.</summary>
             public readonly Type Type;
+            /// <summary>The display name of the type.</summary>
             public readonly string Name;
+            /// <summary>The live component instance.</summary>
             public readonly object Instance;
+            /// <summary>Whether the component is ready and enabled.</summary>
             public readonly bool Ready;
 
+            /// <summary>Captures a component's type, name, instance and ready state.</summary>
             public ComponentView(Type type, string name, object instance, bool ready)
             {
                 Type = type;
@@ -68,6 +81,7 @@ namespace EOS.Unity.Editor
             }
         }
 
+        /// <summary>All components on the entity as name-sorted <see cref="ComponentView"/>s.</summary>
         public static List<ComponentView> Components(IReadOnlyWorld world, EosEntity entity)
         {
             var list = new List<ComponentView>();
@@ -84,6 +98,7 @@ namespace EOS.Unity.Editor
             return list;
         }
 
+        /// <summary>The name-sorted component types present on the entity.</summary>
         public static List<Type> ComponentTypes(IReadOnlyWorld world, EosEntity entity)
         {
             var list = new List<Type>();
@@ -95,15 +110,20 @@ namespace EOS.Unity.Editor
             return list;
         }
 
+        /// <summary>A read-only name/value pair for one inspected field or property of a component.</summary>
         public readonly struct FieldView
         {
+            /// <summary>The field or property name.</summary>
             public readonly string Name;
+            /// <summary>The stringified value.</summary>
             public readonly string Value;
+            /// <summary>Captures a field's name and stringified value.</summary>
             public FieldView(string name, string value) { Name = name; Value = value; }
         }
 
         static readonly Type ObjectBase = typeof(EosObject);
 
+        /// <summary>The public instance fields and readable properties of a component (excluding the <see cref="EosObject"/> base), as name-sorted <see cref="FieldView"/>s.</summary>
         public static List<FieldView> Values(object component)
         {
             var list = new List<FieldView>();
@@ -143,6 +163,7 @@ namespace EOS.Unity.Editor
             catch { return "<unprintable>"; }
         }
 
+        /// <summary>Fills (and returns) <paramref name="buffer"/> with the entity's tag names.</summary>
         public static List<string> Tags(IReadOnlyWorld world, EosEntity entity, List<string> buffer = null)
         {
             buffer ??= new List<string>();
@@ -151,14 +172,21 @@ namespace EOS.Unity.Editor
             return buffer;
         }
 
+        /// <summary>A read-only snapshot of one component storage: its type, count and reactive high-water marks.</summary>
         public readonly struct StorageView
         {
+            /// <summary>The stored component type.</summary>
             public readonly Type Type;
+            /// <summary>The display name of the type.</summary>
             public readonly string Name;
+            /// <summary>The number of components in the storage.</summary>
             public readonly int Count;
+            /// <summary>The storage's max add-version (drives the <c>[New]</c> channel).</summary>
             public readonly ulong MaxAddVersion;
+            /// <summary>The storage's max mark-version (drives the <c>[Bumped]</c> channel).</summary>
             public readonly ulong MaxMarkVersion;
 
+            /// <summary>Captures a storage's type, name, count and reactive marks.</summary>
             public StorageView(Type type, string name, int count, ulong add, ulong mark)
             {
                 Type = type;
@@ -169,6 +197,7 @@ namespace EOS.Unity.Editor
             }
         }
 
+        /// <summary>All indexed component storages in the world as name-sorted <see cref="StorageView"/>s.</summary>
         public static List<StorageView> Storages(IReadOnlyWorld world)
         {
             var list = new List<StorageView>();
@@ -183,6 +212,7 @@ namespace EOS.Unity.Editor
             return list;
         }
 
+        /// <summary>A readable type name with generic arguments expanded (e.g. <c>Incarnation&lt;Transform&gt;</c>).</summary>
         public static string NiceName(Type type)
         {
             if (type == null) return "<null>";

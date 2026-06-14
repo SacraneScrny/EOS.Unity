@@ -5,6 +5,10 @@ using UnityEngine;
 
 namespace EOS.Unity
 {
+    /// <summary>
+    /// An object pool for one prefab: parks deactivated instances under a hidden root and notifies <see cref="IPoolableView"/>
+    /// components on rent/return. Does not reset instance state itself. Usually accessed via <see cref="ViewPoolRegistry"/>.
+    /// </summary>
     public sealed class GameObjectPool
     {
         static readonly List<IPoolableView> _poolableBuffer = new();
@@ -14,10 +18,14 @@ namespace EOS.Unity
         readonly int _maxSize;
         readonly Stack<GameObject> _free = new();
 
+        /// <summary>The prefab this pool spawns instances of.</summary>
         public GameObject Prefab => _prefab;
+        /// <summary>The number of parked instances currently available to rent.</summary>
         public int FreeCount => _free.Count;
+        /// <summary>The maximum number of parked instances kept; returns beyond this destroy instead.</summary>
         public int MaxSize => _maxSize;
 
+        /// <summary>Creates a pool for <paramref name="prefab"/>, parking returns under <paramref name="root"/>, capped at <paramref name="maxSize"/> (min 1).</summary>
         public GameObjectPool(GameObject prefab, Transform root, int maxSize)
         {
             _prefab = prefab;

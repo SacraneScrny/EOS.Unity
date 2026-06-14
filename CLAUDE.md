@@ -16,7 +16,7 @@ EOS.Unity is the Unity consumer assembly for the engine-free EOS ECS core (a sib
 
 ## Code style
 
-- No comments of any kind — same as the core.
+- No comments except XML doc `<summary>` on the public API — same as the core. Every public type and member (and the `protected` virtual/abstract override surface of public base classes) carries a brief `<summary>` saying what it is and how to use it correctly. `<see cref="..."/>` / `<c>...</c>` inline tags allowed. **No** inline `//`, block, or trailing comments anywhere else.
 - No aligning tabs. Only standard indentation (4 spaces). Expression-bodied members where natural.
 - All error handling via `try/catch` + `EosLog.Error/Warning` — never swallow silently, never crash a boot step or a pool notification because user code threw.
 - Always pass `nameof(TheClass)` as the `source` argument to `EosLog` calls.

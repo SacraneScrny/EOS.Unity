@@ -5,6 +5,7 @@ using UnityEngine;
 
 namespace EOS.Unity.Editor
 {
+    /// <summary>Read-only browser for the incarnation index (entries and redirects), with Rebuild/Reload buttons. Opened via <c>Sackrany ▸ EOS ▸ Incarnation Database</c>.</summary>
     public sealed class IncarnationDatabaseWindow : EditorWindow
     {
         const string IndexAssetPath = "Assets/Resources/incarnations.json";

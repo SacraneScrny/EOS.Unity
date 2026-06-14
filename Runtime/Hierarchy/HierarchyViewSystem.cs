@@ -10,11 +10,13 @@ using UnityEngine;
 
 namespace EOS.Unity
 {
+    /// <summary>Mirrors the entity hierarchy into the view hierarchy each Update, reparenting each viewed entity's view under the nearest viewed ancestor.</summary>
     [Group(typeof(IncarnationGroup))]
     [UpdateOrder(UpdateOrderPhase.AfterAll)]
     [UpdateBefore(typeof(IncarnationSyncSystem))]
     public sealed class HierarchyViewSystem : EosSystem
     {
+        /// <summary>Runs in the Update phase.</summary>
         public override UpdateType UpdateType => UpdateType.Update;
 
         [Exclude(typeof(AttachedTo))]

@@ -4,6 +4,7 @@ using UnityEngine;
 
 namespace EOS.Unity.Editor
 {
+    /// <summary>Custom inspector for <see cref="EntityComponentSet"/>: code module, tags and component-template list.</summary>
     [CustomEditor(typeof(EntityComponentSet))]
     public sealed class EntityComponentSetEditor : UnityEditor.Editor
     {
@@ -20,6 +21,7 @@ namespace EOS.Unity.Editor
             _components = serializedObject.FindProperty("_components");
         }
 
+        /// <summary>Draws the set's module, tags and component list.</summary>
         public override void OnInspectorGUI()
         {
             serializedObject.Update();

@@ -8,6 +8,7 @@ using UnityEngine;
 
 namespace EOS.Unity
 {
+    /// <summary>Unity-serialization-aligned deep copy used to clone preset/set component templates into live components; copies exactly the fields Unity would serialize.</summary>
     public static class EosCloneUtility
     {
         const BindingFlags Fields = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly;
@@ -17,6 +18,7 @@ namespace EOS.Unity
         static readonly Dictionary<Type, FieldInfo[]> _objectFields = new();
         static readonly Dictionary<Type, bool> _plainValueTypes = new();
 
+        /// <summary>Deep-copies every Unity-serialized field declared from <paramref name="source"/>'s type down to the <see cref="EosObject"/> boundary onto <paramref name="target"/>; no-op if either is null.</summary>
         public static void CopyDeclaredFields(EosObject source, EosObject target)
         {
             if (source == null || target == null) return;
@@ -37,6 +39,7 @@ namespace EOS.Unity
             }
         }
 
+        /// <summary>Deep-clones <paramref name="value"/> (arrays, <c>List&lt;&gt;</c>, <c>[Serializable]</c> classes, non-plain structs; primitives/strings/<see cref="UnityEngine.Object"/> passed through), returning false for unsupported types or when <paramref name="depth"/> exceeds the cap of 32.</summary>
         public static bool TryClone(object value, int depth, out object clone)
         {
             clone = null;

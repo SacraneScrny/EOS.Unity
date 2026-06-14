@@ -8,12 +8,15 @@ using UnityEngine;
 
 namespace EOS.Unity
 {
+    /// <summary>Per-world service managing the typed socket/module assembly graph; attaches, detaches and queries modules, deferring structural changes while iterating.</summary>
     public sealed class AssemblyService
     {
         readonly World _world;
 
+        /// <summary>Creates the service bound to the given world.</summary>
         public AssemblyService(World world) => _world = world;
 
+        /// <summary>Attaches <paramref name="module"/> into the given socket on <paramref name="parent"/>, leaving any existing offset untouched; deferred when iterating.</summary>
         public bool Attach(EosEntity parent, string socketId, EosEntity module)
         {
             if (!Validate(parent, socketId, module)) return false;
@@ -27,6 +30,7 @@ namespace EOS.Unity
             return AttachCore(parent, socketId, module, false, Vector3.zero, Quaternion.identity);
         }
 
+        /// <summary>Attaches <paramref name="module"/> into the socket on <paramref name="parent"/> and writes the given local position/rotation; deferred when iterating.</summary>
         public bool Attach(EosEntity parent, string socketId, EosEntity module, Vector3 localPosition, Quaternion localRotation)
         {
             if (!Validate(parent, socketId, module)) return false;
@@ -40,6 +44,7 @@ namespace EOS.Unity
             return AttachCore(parent, socketId, module, true, localPosition, localRotation);
         }
 
+        /// <summary>Detaches <paramref name="module"/> from its socket and clears the native parent if it still points at the assembly parent; deferred when iterating.</summary>
         public bool Detach(EosEntity module)
         {
             if (!module.IsValid || !module.Has<AttachedTo>()) return false;
@@ -53,6 +58,7 @@ namespace EOS.Unity
             return DetachCore(module);
         }
 
+        /// <summary>Sets the module's local position/rotation offset via its <see cref="EntityTransform"/>; deferred when iterating and the transform must be added.</summary>
         public bool SetLocalOffset(EosEntity module, Vector3 localPosition, Quaternion localRotation)
         {
             if (!module.IsValid || !module.Has<AttachedTo>()) return false;
@@ -66,6 +72,7 @@ namespace EOS.Unity
             return SetOffsetCore(module, localPosition, localRotation);
         }
 
+        /// <summary>Gets the module currently held in the given socket on <paramref name="parent"/>, if any.</summary>
         public bool TryGetModule(EosEntity parent, string socketId, out EosEntity module)
         {
             module = EosEntity.Null;
@@ -74,9 +81,11 @@ namespace EOS.Unity
                 && asm.TryGetModule(socketId, out module);
         }
 
+        /// <summary>Collects all modules held by <paramref name="parent"/> into <paramref name="into"/> and returns the count.</summary>
         public int GetModules(EosEntity parent, List<EosEntity> into)
             => parent.IsValid && parent.TryGet<EntityAssembly>(out var asm) ? asm.Collect(into) : 0;
 
+        /// <summary>Returns true when the given socket on <paramref name="parent"/> currently holds no module.</summary>
         public bool IsSocketFree(EosEntity parent, string socketId)
             => !TryGetModule(parent, socketId, out _);
 

@@ -7,10 +7,13 @@ using EOS.Logging;
 
 namespace EOS.Unity
 {
+    /// <summary>Authoring entry pairing a socket id with a preset to spawn and attach there as an assembly default (new entities only).</summary>
     [Serializable]
     public sealed class DefaultModule
     {
+        /// <summary>The socket on the parent to attach the spawned module into.</summary>
         public string SocketId;
+        /// <summary>The preset spawned and attached as the default module for the socket.</summary>
         public EntityPreset Module;
     }
 

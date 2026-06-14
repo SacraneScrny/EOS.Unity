@@ -11,6 +11,7 @@ using UnityEngine;
 
 namespace EOS.Unity.Editor
 {
+    /// <summary>Generates <c>WorldBootstrap.gen.cs</c> from <c>[EosWorldBootstrap]</c> methods and installs it into <c>WorldBootstrap.Provider</c> for per-world seeding; opt-in by file existence, refreshed on recompile. Created via <c>Sackrany ▸ EOS ▸ Create World Bootstrap</c>.</summary>
     static class EosWorldBootstrapCodegen
     {
         const string OutputDir = "Assets/EOS.Generated";

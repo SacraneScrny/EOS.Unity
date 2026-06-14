@@ -3,6 +3,7 @@ using UnityEditor;
 
 namespace EOS.Unity.Editor
 {
+    /// <summary>Shuts EOS down when exiting Play Mode so Enter-Play-Mode-Options (no domain reload) start from a clean state.</summary>
     [InitializeOnLoad]
     static class EosEditorTeardown
     {

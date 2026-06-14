@@ -6,13 +6,19 @@ using UnityEngine;
 
 namespace EOS.Unity.Editor
 {
+    /// <summary>Pan/zoom/drag IMGUI canvas that lays out and draws node-and-edge graphs for the World Inspector; stateless about content, fed fresh nodes/edges each <see cref="Draw"/>.</summary>
     internal sealed class EosGraphView
     {
+        /// <summary>Current canvas pan offset in world space.</summary>
         public Vector2 Pan;
+        /// <summary>Current zoom factor, clamped between roughly 0.35 and 2.0 on scroll.</summary>
         public float Zoom = 1f;
+        /// <summary>Id of the currently selected node, or null when nothing is selected.</summary>
         public string Selected;
+        /// <summary>Raised when the selection changes (node id, or null when the background is clicked).</summary>
         public Action<string> OnSelect;
 
+        /// <summary>Node id to world-space position; persists layout across draws and is mutated by dragging.</summary>
         public readonly Dictionary<string, Vector2> Positions = new();
 
         const float BaseW = 168f;
