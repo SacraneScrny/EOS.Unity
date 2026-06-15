@@ -292,7 +292,7 @@ namespace EOS.Unity.Editor
                 {
                     EditorGUILayout.LabelField(s.Name, GUILayout.Width(220));
                     EditorGUILayout.LabelField($"× {s.Count}", GUILayout.Width(60));
-                    EditorGUILayout.LabelField($"add v{s.MaxAddVersion}  mark v{s.MaxMarkVersion}", EditorStyles.miniLabel);
+                    EditorGUILayout.LabelField($"add v{s.MaxAddVersion}  mark v{s.MaxMarkVersion}  en v{s.MaxEnableVersion}  dis v{s.MaxDisableVersion}  rem v{s.MaxRemoveVersion}", EditorStyles.miniLabel);
                 }
             }
         }

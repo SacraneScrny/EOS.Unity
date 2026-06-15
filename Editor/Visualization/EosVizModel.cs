@@ -29,7 +29,7 @@ namespace EOS.Unity.Editor
             public bool Enabled = true;
             /// <summary>Whether the system declares an <c>EventExecute</c>.</summary>
             public bool IsEvent;
-            /// <summary>Whether the system has a reactive (<c>[New]</c>/<c>[Bumped]</c>) parameter.</summary>
+            /// <summary>Whether the system has a reactive (<c>[New]</c>/<c>[Bumped]</c>/<c>[Enabled]</c>/<c>[Disabled]</c>/<c>[Removed]</c>) parameter.</summary>
             public bool Reactive;
 
             /// <summary>The assigned <c>[Group]</c> type, or null.</summary>

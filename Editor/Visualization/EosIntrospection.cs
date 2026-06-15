@@ -185,15 +185,24 @@ namespace EOS.Unity.Editor
             public readonly ulong MaxAddVersion;
             /// <summary>The storage's max mark-version (drives the <c>[Bumped]</c> channel).</summary>
             public readonly ulong MaxMarkVersion;
+            /// <summary>The storage's max enable-version (drives the <c>[Enabled]</c> channel).</summary>
+            public readonly ulong MaxEnableVersion;
+            /// <summary>The storage's max disable-version (drives the <c>[Disabled]</c> channel).</summary>
+            public readonly ulong MaxDisableVersion;
+            /// <summary>The storage's max remove-version (drives the <c>[Removed]</c> channel).</summary>
+            public readonly ulong MaxRemoveVersion;
 
             /// <summary>Captures a storage's type, name, count and reactive marks.</summary>
-            public StorageView(Type type, string name, int count, ulong add, ulong mark)
+            public StorageView(Type type, string name, int count, ulong add, ulong mark, ulong enable, ulong disable, ulong remove)
             {
                 Type = type;
                 Name = name;
                 Count = count;
                 MaxAddVersion = add;
                 MaxMarkVersion = mark;
+                MaxEnableVersion = enable;
+                MaxDisableVersion = disable;
+                MaxRemoveVersion = remove;
             }
         }
 
@@ -206,7 +215,8 @@ namespace EOS.Unity.Editor
             {
                 if (kv.Value is not IIndexedStorage indexed) continue;
                 list.Add(new StorageView(kv.Key, NiceName(kv.Key), indexed.Count,
-                    indexed.MaxAddVersion, indexed.MaxMarkVersion));
+                    indexed.MaxAddVersion, indexed.MaxMarkVersion,
+                    indexed.MaxEnableVersion, indexed.MaxDisableVersion, indexed.MaxRemoveVersion));
             }
             list.Sort((a, b) => string.CompareOrdinal(a.Name, b.Name));
             return list;
