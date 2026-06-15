@@ -3,7 +3,7 @@
     "rootNamespace": "EOS.Unity",
     "references": [
         "EOS",
-        "MackySoft.SubclassSelector"
+        "MackySoft.SerializeReferenceExtensions"
     ],
     "includePlatforms": [],
     "excludePlatforms": [],

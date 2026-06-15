@@ -22,21 +22,21 @@ namespace EOS.Unity
 
         /// <summary>Attaches this module entity into the given socket on <paramref name="parent"/>, leaving any existing local offset untouched.</summary>
         public static bool AttachTo(this EosEntity module, EosEntity parent, string socketId)
-            => module.World != null && module.World.Assemblies().Attach(parent, socketId, module);
+            => module._internal_world != null && module._internal_world.Assemblies().Attach(parent, socketId, module);
 
         /// <summary>Attaches this module into the socket on <paramref name="parent"/> and writes the given local position/rotation offset.</summary>
         public static bool AttachTo(this EosEntity module, EosEntity parent, string socketId, Vector3 localPosition, Quaternion localRotation)
-            => module.World != null && module.World.Assemblies().Attach(parent, socketId, module, localPosition, localRotation);
+            => module._internal_world != null && module._internal_world.Assemblies().Attach(parent, socketId, module, localPosition, localRotation);
 
         /// <summary>Detaches this module from its socket, releasing both the assembly link and the native hierarchy parent.</summary>
         public static bool DetachFromSocket(this EosEntity module)
-            => module.World != null && module.World.Assemblies().Detach(module);
+            => module._internal_world != null && module._internal_world.Assemblies().Detach(module);
 
         /// <summary>Gets the module currently held in the given socket on this parent entity, if any.</summary>
         public static bool TryGetModule(this EosEntity parent, string socketId, out EosEntity module)
         {
             module = EosEntity.Null;
-            return parent.World != null && parent.World.Assemblies().TryGetModule(parent, socketId, out module);
+            return parent._internal_world != null && parent._internal_world.Assemblies().TryGetModule(parent, socketId, out module);
         }
     }
 }
