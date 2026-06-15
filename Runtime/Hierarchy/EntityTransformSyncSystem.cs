@@ -18,6 +18,7 @@ namespace EOS.Unity
         /// <summary>Runs in the Update phase.</summary>
         public override UpdateType UpdateType => UpdateType.Update;
 
+        [WithoutTag("ManualTransformSync")]
         void Execute(EntityTransform transform, EosEntity entity)
         {
             var view = AssemblyViewBinder.GetViewObject(entity);
@@ -66,6 +67,25 @@ namespace EOS.Unity
         static bool Differs(Quaternion a, Quaternion b)
         {
             return a.x != b.x || a.y != b.y || a.z != b.z || a.w != b.w;
+        }
+    }
+    
+    [Group(typeof(IncarnationGroup))]
+    [UpdateOrder(UpdateOrderPhase.AfterAll)]
+    [UpdateAfter(typeof(EntityTransformSyncSystem))]
+    public sealed class EntityManualTransformSyncSystem : EosSystem
+    {
+        /// <summary>Runs in the Update phase.</summary>
+        public override UpdateType UpdateType => UpdateType.Update;
+
+        [WithTag("ManualTransformSync")]
+        void Execute(EntityTransform transform, EosEntity entity)
+        {
+            var view = AssemblyViewBinder.GetViewObject(entity);
+            if (view == null) return;
+            
+            transform.WorldPosition = view.transform.position;
+            transform.WorldRotation = view.transform.rotation;
         }
     }
 }
