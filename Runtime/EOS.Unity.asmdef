@@ -1,0 +1,17 @@
+{
+    "name": "EOS.Unity",
+    "rootNamespace": "EOS.Unity",
+    "references": [
+        "EOS",
+        "MackySoft.SubclassSelector"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": [],
+    "versionDefines": [],
+    "noEngineReferences": false
+}
