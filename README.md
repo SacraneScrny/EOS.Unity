@@ -20,6 +20,7 @@ The core is **never modified** by this package — it only attaches through the 
 - [View pooling](#view-pooling)
 - [Entity presets (ScriptableObject)](#entity-presets-scriptableobject)
 - [Component sets](#component-sets-required-shared-archetypes)
+- [Entity blueprints (code, no reflection)](#entity-blueprints-code-no-reflection)
 - [Entity assemblies (sockets & modules)](#entity-assemblies-sockets--modules)
 - [Saves](#saves)
 - [Logging / profiling / debug draw](#logging--profiling--debug-draw)
@@ -406,6 +407,112 @@ In the Component Set inspector, the **Code Module** slot has a **Set Module** bu
 
 Builder API: `Add<T>()` (creates and returns the template), `Add<T>(instance)` / `Add(instance)`, `AddTag(stringOrEnum)`. A set contributes its serialized components/tags **and** its module's, then everything flows through the same merge, override, and de-dupe path. In a preset's inspector, module-built components appear under *"Set Components (required)"* by type with an **Override** button (their values live in code, so press Override to edit them locally).
 
+## Entity blueprints (code, no reflection)
+
+A code-defined alternative to presets for the **hot-spawn** path — bullets, shells, VFX, anything you create many of per second. A preset stores components as serialized templates and, at every spawn, deep-copies their fields onto the live component with reflection (`FieldInfo.GetValue/SetValue` + per-field boxing). That's fine for occasional spawns; for high-frequency ones it's pure overhead. A **blueprint** sets the same fields in typed code instead — no reflection, no per-field boxing — while still going through component and view pooling exactly like a preset.
+
+Subclass `EntityBlueprint` once per kind of object and assemble it in `Configure`:
+
+```csharp
+using System;
+using EOS.Unity;
+
+[Serializable]
+public sealed class BulletBlueprint : EntityBlueprint
+{
+    public float Speed = 20f;
+    public int Damage = 5;
+
+    protected override void Configure(EntityBuilder b)
+    {
+        var bullet = b.Add<Bullet>();   // rented from the pool when Bullet : IPoolableObject
+        bullet.Speed = Speed;           // direct assignment — no reflection, no boxing
+        bullet.Damage = Damage;
+
+        b.Add<EntityTransform>();
+    }
+}
+```
+
+The base carries the same entity-level knobs as a preset, all public fields so they show in the inspector: **Name**, **Active**, **Serializable**, **Incarnation View** + **Incarnation Id** (the id has the same dropdown sourced from `incarnations.json`), and a **Modules** list (below). The incarnation is attached automatically from those two fields — don't also add one in `Configure` or the entity gets two views.
+
+**Picking a blueprint in the inspector.** A blueprint is a plain `[Serializable]` object, not an asset — reference it with a `[SerializeReference, SubclassSelector]` field on any MonoBehaviour, and the inspector shows a type picker over every concrete `EntityBlueprint` plus its public config fields:
+
+```csharp
+using UnityEngine;
+using EOS.Unity;
+
+public sealed class Weapon : MonoBehaviour
+{
+    [SerializeReference, SubclassSelector] EntityBlueprint _projectile;
+
+    public void Fire() => _projectile.Build();   // into the default world; or Build(myWorld)
+}
+```
+
+Or drop an **Entity Blueprint Spawner** component (`Sackrany/EOS/Entity Blueprint Spawner`) — same shape as the preset spawner (*Spawn On Start*, *Destroy After Spawn*, `LastSpawned`, `Spawn()`), requires EOS already booted.
+
+### Builder API
+
+`Configure` receives an `EntityBuilder` (a `readonly struct` over the still-inactive entity). Everything is typed and reflection-free:
+
+| Call | Effect |
+|---|---|
+| `T Add<T>()` | adds the component (pooled if `T : IPoolableObject`) and returns it — set fields directly; zero-alloc |
+| `Add<T>(c => …)` | adds and configures via callback (chainable; the lambda allocates a closure if it captures — prefer `Add<T>()` on hot paths) |
+| `AddIncarnation<TView>(id)` / `AddIncarnation(kind, id)` | attach a view (rarely needed — use the inspector fields) |
+| `Tag(stringOrEnum)` | add a tag |
+| `Parent(parent)` | parent this entity under another |
+| `Entity` / `World` | the entity being built and its world, for anything not wrapped |
+
+### Nested entities & assemblies
+
+The builder composes subtrees, in the same world, two ways:
+
+```csharp
+protected override void Configure(EntityBuilder b)
+{
+    b.Add<Tank>();
+
+    // hierarchy child (native parent-child):
+    EosEntity hull = b.AddChild(_hullBlueprint);     // builds the nested blueprint, parents it
+    b.CreateChild("Muzzle");                          // or a bare child entity
+    b.AddChild(existingEntity);                       // or reparent an existing one
+
+    // assembly module (typed socket attach, also sets the native parent):
+    b.AttachModule("turret", _turretBlueprint);                       // build + attach to socket
+    b.AttachModule("scope", _scopeBlueprint, offsetPos, offsetRot);   // with a local offset
+    b.AttachModule("grip", existingModuleEntity);                     // attach an existing entity
+}
+```
+
+`AddChild`/`AttachModule` taking a blueprint build it into the same world and link it; a failed socket attach destroys the orphan (immediate) or schedules cleanup (when deferred), mirroring preset default modules. Child active state is hierarchical — children stay suspended under the still-inactive parent and wake when it activates.
+
+### Modules list (declarative, inspector-driven)
+
+For the common "this entity has these sockets filled with these modules" case you don't need code at all — the base **Modules** list pairs a socket id with a nested blueprint (a `[SerializeReference, SubclassSelector]` picker), and each row is attached after `Configure`. **The socket field is a dropdown sourced from the selected incarnation's `SocketSet`** — change the **Incarnation Id** and the socket choices refresh (2 s cache, free-text fallback for ids not yet indexed). This is the blueprint analogue of a preset's **Default Modules**:
+
+```
+TankBlueprint (subclass picker)
+  Incarnation Id:  [Vehicles/Tank ▼]
+  Modules
+    ├─ Socket: [turret ▼]   Module: TurretBlueprint
+    └─ Socket: [hatch ▼]    Module: HatchBlueprint
+```
+
+Each nested blueprint configures its own node and its own sockets, so assemblies nest to any depth; a `ThreadStatic` depth guard (32) stops a self-referential blueprint from recursing forever.
+
+### Blueprint vs preset
+
+| | Preset (ScriptableObject) | Blueprint (code) |
+|---|---|---|
+| Authored as | an asset, fully in the inspector | a C# subclass; fields shown via `[SubclassSelector]` |
+| Per-spawn cost | reflective field deep-copy (`EosCloneUtility`) | typed assignment, no reflection |
+| Component/view pooling | yes | yes |
+| Best for | varied content, designer-authored | hot spawns (bullets, VFX), code-owned types |
+
+Pooling caveat is the same as everywhere: a reused poolable component re-runs its lifecycle and your `Configure` re-stamps the serialized fields, but any `[NonSerialized]`/runtime field you don't set is stale from the previous use — clear it in `OnDispose` (component) or `IPoolableView.OnRent/OnReturn` (view).
+
 ## Entity assemblies (sockets & modules)
 
 Runtime composition of entities from typed, swappable modules — a rifle with scope/grip sockets, a tank with turret and cannon — with attach/detach at runtime, full save/load, and the view hierarchy following along.
@@ -526,6 +633,7 @@ Known approximations: the graph reconstructs execution order from attributes rat
 
 - **Renaming an incarnation** changes its id (id == path). The postprocessor warns with `old -> new` and a ready-to-paste redirect snippet. Add it to the `Redirects` list in `incarnations.json` to keep old saves resolving; manual redirects are preserved across rebuilds.
 - **Pooled views keep state.** The pool deactivates/reactivates instances; it does not reset them. Anything that must not leak between uses (trails, animators, timers) belongs in `IPoolableView.OnRent/OnReturn`.
+- **Hot spawns → blueprints, not presets.** A preset re-runs a reflective field deep-copy on every `Instantiate`; for high-frequency spawns (bullets, VFX) use an [entity blueprint](#entity-blueprints-code-no-reflection) instead — same pooling, typed assignment, no reflection. Pooling reuses the component shell but does **not** skip the field copy on the preset path.
 - **Spawner needs a booted world.** `EntityPresetSpawner.Spawn()` logs an error if `EosLoop.IsBooted` is false — make sure your bootstrap runs first (the generated `GameBootstrap` uses `[DefaultExecutionOrder(-10000)]` for exactly this).
 - **Save caveat (your serializer, not the bridge):** components whose serialized `DataType` is a bare numeric (`int`) and that cast `(int)data` directly can hit a boxed-`long` `InvalidCastException` after a JSON round-trip — use a data struct/class or `Convert.ToInt32`. `string` and data classes are fine.
 - **Untrusted saves:** `TypeNameHandling.Auto` is a deserialization-attack vector for files from untrusted sources; add a `SerializationBinder` allowlist on your side if saves travel over network/cloud. Local slots are fine.
