@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using EOS.Core;
 using EOS.Entities;
 using EOS.Extensions;
@@ -24,6 +25,9 @@ namespace EOS.Unity
         public IncarnationViewKind IncarnationView = IncarnationViewKind.EntityIncarnation;
         /// <summary>The incarnation id (prefab under <c>Resources/Incarnations/</c>) the view resolves from; picked via the inspector dropdown. Don't also add an incarnation in <see cref="Configure"/> or the entity gets two views.</summary>
         [IncarnationId] public string IncarnationId;
+
+        /// <summary>Module holders: socket id + nested blueprint, attached after <see cref="Configure"/>. The inspector picks each socket from the selected incarnation's <see cref="SocketSet"/> and the module via a subclass picker.</summary>
+        public List<BlueprintModule> Modules = new();
 
         /// <summary>Builds the entity into <see cref="Universe.DefaultWorld"/>; logs and returns <see cref="EosEntity.Null"/> if EOS is not booted.</summary>
         public EosEntity Build()
@@ -60,6 +64,7 @@ namespace EOS.Unity
                     builder.AddIncarnation(IncarnationView, IncarnationId);
                 Configure(builder);
                 if (Active) entity.On();
+                ApplyModules(builder);
                 return entity;
             }
             catch (Exception ex)
@@ -71,6 +76,17 @@ namespace EOS.Unity
             finally
             {
                 _buildDepth--;
+            }
+        }
+
+        void ApplyModules(EntityBuilder builder)
+        {
+            if (Modules == null) return;
+            for (int i = 0; i < Modules.Count; i++)
+            {
+                var entry = Modules[i];
+                if (entry == null || entry.Module == null || string.IsNullOrEmpty(entry.SocketId)) continue;
+                builder.AttachModule(entry.SocketId, entry.Module);
             }
         }
 
