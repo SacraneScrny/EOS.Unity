@@ -10,6 +10,9 @@ namespace EOS.Unity
     [Serializable]
     public abstract class EntityBlueprint
     {
+        [ThreadStatic] static int _buildDepth;
+        const int MaxBuildDepth = 32;
+
         /// <summary>Entity name; blank normalizes to <c>"Entity"</c>.</summary>
         public string Name;
         /// <summary>Whether the entity is activated after configuration so its components awake/start; leave false to build it suspended.</summary>
@@ -41,11 +44,18 @@ namespace EOS.Unity
                 return EosEntity.Null;
             }
 
+            if (_buildDepth >= MaxBuildDepth)
+            {
+                EosLog.Error("blueprint nested too deep; aborting (cycle?)", nameof(EntityBlueprint));
+                return EosEntity.Null;
+            }
+
             var entity = EosEntity.Null;
+            _buildDepth++;
             try
             {
                 entity = new EosEntity(world, Name ?? string.Empty, false, Serializable);
-                var builder = new EntityBuilder(entity);
+                var builder = new EntityBuilder(entity, world);
                 if (IncarnationView != IncarnationViewKind.None && !string.IsNullOrEmpty(IncarnationId))
                     builder.AddIncarnation(IncarnationView, IncarnationId);
                 Configure(builder);
@@ -57,6 +67,10 @@ namespace EOS.Unity
                 EosLog.Error($"build '{GetType().Name}' threw: {ex.Message}", nameof(EntityBlueprint));
                 if (entity.IsValid) entity.Destroy();
                 return EosEntity.Null;
+            }
+            finally
+            {
+                _buildDepth--;
             }
         }
 
