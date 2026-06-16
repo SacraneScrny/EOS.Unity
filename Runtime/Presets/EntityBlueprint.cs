@@ -17,6 +17,11 @@ namespace EOS.Unity
         /// <summary>Whether the entity is captured by world serialization.</summary>
         public bool Serializable = true;
 
+        /// <summary>Which incarnation (view) binder to attach automatically; <see cref="IncarnationViewKind.None"/> (or a blank <see cref="IncarnationId"/>) leaves the entity viewless.</summary>
+        public IncarnationViewKind IncarnationView = IncarnationViewKind.EntityIncarnation;
+        /// <summary>The incarnation id (prefab under <c>Resources/Incarnations/</c>) the view resolves from; picked via the inspector dropdown. Don't also add an incarnation in <see cref="Configure"/> or the entity gets two views.</summary>
+        [IncarnationId] public string IncarnationId;
+
         /// <summary>Builds the entity into <see cref="Universe.DefaultWorld"/>; logs and returns <see cref="EosEntity.Null"/> if EOS is not booted.</summary>
         public EosEntity Build()
         {
@@ -40,7 +45,10 @@ namespace EOS.Unity
             try
             {
                 entity = new EosEntity(world, Name ?? string.Empty, false, Serializable);
-                Configure(new EntityBuilder(entity));
+                var builder = new EntityBuilder(entity);
+                if (IncarnationView != IncarnationViewKind.None && !string.IsNullOrEmpty(IncarnationId))
+                    builder.AddIncarnation(IncarnationView, IncarnationId);
+                Configure(builder);
                 if (Active) entity.On();
                 return entity;
             }
