@@ -49,6 +49,7 @@ namespace EOS.Unity
             EosDebugDrawer.Remove();
             Universe.Shutdown();
             ViewPoolRegistry.ClearAll();
+            EntityViewAdoption.Clear();
             IncarnationDatabase.Unload();
             IsBooted = false;
         }

@@ -15,6 +15,22 @@ namespace EOS.Unity
         /// <summary>Spawns the prefab for <paramref name="incarnationId"/>, binds the <see cref="EntityIncarnation"/> to the entity, and returns it (null on failure).</summary>
         public EntityIncarnation Instantiate(EosEntity entity, string incarnationId)
         {
+            if (EntityViewAdoption.TryAdopt(entity, out var adopted))
+            {
+                try
+                {
+                    adopted.Entity = entity;
+                    adopted.InvokeBind();
+                    return adopted;
+                }
+                catch (Exception ex)
+                {
+                    EosLog.Error($"adopt '{incarnationId}' threw: {ex}", nameof(EntityIncarnationBinder));
+                    if (adopted != null) ViewPoolRegistry.Despawn(adopted.gameObject);
+                    return null;
+                }
+            }
+
             GameObject instance = null;
             try
             {
